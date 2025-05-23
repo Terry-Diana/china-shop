@@ -15,27 +15,47 @@ interface Slide {
 const slides: Slide[] = [
   {
     id: 1,
+<<<<<<< HEAD
     title: "Summer Collection",
     subtitle: "Discover the latest trends for the season",
     buttonText: "Shop Now",
     buttonLink: "/products/fashion",
     image: "https://images.pexels.com/photos/5704720/pexels-photo-5704720.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260",
+=======
+    title: "Kitchen Collection",
+    subtitle: "Discover the latest trends for the season",
+    buttonText: "Shop Now",
+    buttonLink: "/products/fashion",
+    image: "https://images.pexels.com/photos/30981356/pexels-photo-30981356/free-photo-of-modern-kitchenware-set-with-stainless-steel-pots.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+>>>>>>> 55c01f0 (first commit)
   },
   {
     id: 2,
     title: "Tech Essentials",
     subtitle: "Upgrade your gadgets with the newest releases",
+<<<<<<< HEAD
     buttonText: "Explore",
     buttonLink: "/products/electronics",
     image: "https://images.pexels.com/photos/1029757/pexels-photo-1029757.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260",
+=======
+    buttonText: "Shop Now",
+    buttonLink: "/products/electronics",
+    image: "https://images.pexels.com/photos/27436633/pexels-photo-27436633/free-photo-of-a-desk-with-a-computer-and-a-keyboard-on-it.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+>>>>>>> 55c01f0 (first commit)
   },
   {
     id: 3,
     title: "Home Makeover",
     subtitle: "Transform your space with our home collection",
+<<<<<<< HEAD
     buttonText: "Discover",
     buttonLink: "/products/home",
     image: "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260",
+=======
+    buttonText: "Shop Now",
+    buttonLink: "/products/home",
+    image: "https://cdn.pixabay.com/photo/2016/08/26/15/06/home-1622401_960_720.jpg",
+>>>>>>> 55c01f0 (first commit)
   },
 ];
 
@@ -70,7 +90,11 @@ const HeroSection = () => {
           transition={{ duration: 0.5 }}
           className="absolute inset-0"
           style={{
+<<<<<<< HEAD
             backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url(${slides[currentSlide].image})`,
+=======
+            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)), url(${slides[currentSlide].image})`,
+>>>>>>> 55c01f0 (first commit)
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
@@ -82,7 +106,11 @@ const HeroSection = () => {
               transition={{ delay: 0.2, duration: 0.5 }}
               className="max-w-xl"
             >
+<<<<<<< HEAD
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3">
+=======
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent mb-3">
+>>>>>>> 55c01f0 (first commit)
                 {slides[currentSlide].title}
               </h1>
               <p className="text-lg md:text-xl text-white opacity-90 mb-6">

@@ -2,9 +2,28 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
+<<<<<<< HEAD
   Search, ShoppingCart, User, Heart, Menu, X, 
   ChevronDown, LogIn, LayoutGrid, Home, 
   Smartphone, Laptop, Headphones, ShoppingBag 
+=======
+  ShoppingCart, User, Heart, Menu, X, 
+  ChevronDown, LogIn, LayoutGrid, 
+  Smartphone, ShoppingBag, 
+  Sofa,
+  CookingPot,
+  Flower2,
+  Blocks,
+  Bath,
+  PaintBucket,
+  Dumbbell,
+  Fan,
+  NotebookPen,
+  Lamp,
+  PartyPopper,
+  Baby,
+  PawPrint
+>>>>>>> 55c01f0 (first commit)
 } from 'lucide-react';
 import Button from '../ui/Button';
 import SearchBar from '../ui/SearchBar';
@@ -35,10 +54,27 @@ const Header = () => {
 
   const categories = [
     { name: 'Electronics', icon: <Smartphone size={18} /> },
+<<<<<<< HEAD
     { name: 'Computers', icon: <Laptop size={18} /> },
     { name: 'Audio', icon: <Headphones size={18} /> },
     { name: 'Fashion', icon: <ShoppingBag size={18} /> },
     { name: 'Home', icon: <Home size={18} /> },
+=======
+    { name: 'Furniture', icon: <Sofa size={18} /> },
+    { name: 'Kitchen', icon: <CookingPot size={18} /> },
+    { name: 'Beauty', icon: <Flower2 size={18} /> },
+    { name: 'Toys', icon: <Blocks size={18} /> },
+    { name: 'Fashion', icon: <ShoppingBag size={18} /> },
+    { name: 'Bathroom', icon: <Bath size={18} /> },
+    { name: 'Cleaning', icon: <PaintBucket size={18} /> },
+    { name: 'Fitness', icon: <Dumbbell size={18} /> },
+    { name: 'Decor', icon: <Fan size={18} /> },
+    { name: 'Stationery', icon: <NotebookPen size={18} /> },
+    { name: 'Lights', icon: <Lamp size={18} /> },
+    { name: 'Party Supplies', icon: <PartyPopper size={18} /> },
+    { name: 'Baby', icon: <Baby size={18} /> },
+    { name: 'Pet Supplies', icon: <PawPrint size={18} /> },
+>>>>>>> 55c01f0 (first commit)
   ];
 
   return (

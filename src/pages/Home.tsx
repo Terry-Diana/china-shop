@@ -4,6 +4,10 @@ import ProductCarousel from '../components/home/ProductCarousel';
 import CategoryGrid from '../components/home/CategoryGrid';
 import { mockProducts } from '../data/mockProducts';
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 55c01f0 (first commit)
 const Home = () => {
   useEffect(() => {
     // Scroll to top when component mounts
@@ -94,22 +98,38 @@ const Home = () => {
               {
                 title: 'Free Shipping',
                 description: 'On all orders over $50',
+<<<<<<< HEAD
                 icon: 'https://via.placeholder.com/60',
+=======
+                icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXRydWNrLWVsZWN0cmljLWljb24gbHVjaWRlLXRydWNrLWVsZWN0cmljIj48cGF0aCBkPSJNMTQgMTlWN2EyIDIgMCAwIDAtMi0ySDkiLz48cGF0aCBkPSJNMTUgMTlIOSIvPjxwYXRoIGQ9Ik0xOSAxOWgyYTEgMSAwIDAgMCAxLTF2LTMuNjVhMSAxIDAgMCAwLS4yMi0uNjJMMTguMyA5LjM4YTEgMSAwIDAgMC0uNzgtLjM4SDE0Ii8+PHBhdGggZD0iTTIgMTN2NWExIDEgMCAwIDAgMSAxaDIiLz48cGF0aCBkPSJNNCAzIDIuMTUgNS4xNWEuNDk1LjQ5NSAwIDAgMCAuMzUuODZoMi4xNWEuNDcuNDcgMCAwIDEgLjM1Ljg2TDMgOS4wMiIvPjxjaXJjbGUgY3g9IjE3IiBjeT0iMTkiIHI9IjIiLz48Y2lyY2xlIGN4PSI3IiBjeT0iMTkiIHI9IjIiLz48L3N2Zz4=',
+>>>>>>> 55c01f0 (first commit)
               },
               {
                 title: 'Easy Returns',
                 description: '30 day return policy',
+<<<<<<< HEAD
                 icon: 'https://via.placeholder.com/60',
+=======
+                icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXVuZG8yLWljb24gbHVjaWRlLXVuZG8tMiI+PHBhdGggZD0iTTkgMTQgNCA5bDUtNSIvPjxwYXRoIGQ9Ik00IDloMTAuNWE1LjUgNS41IDAgMCAxIDUuNSA1LjVhNS41IDUuNSAwIDAgMS01LjUgNS41SDExIi8+PC9zdmc+',
+>>>>>>> 55c01f0 (first commit)
               },
               {
                 title: 'Secure Payments',
                 description: 'Protected by encryption',
+<<<<<<< HEAD
                 icon: 'https://via.placeholder.com/60',
+=======
+                icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWhhbmQtY29pbnMtaWNvbiBsdWNpZGUtaGFuZC1jb2lucyI+PHBhdGggZD0iTTExIDE1aDJhMiAyIDAgMSAwIDAtNGgtM2MtLjYgMC0xLjEuMi0xLjQuNkwzIDE3Ii8+PHBhdGggZD0ibTcgMjEgMS42LTEuNGMuMy0uNC44LS42IDEuNC0uNmg0YzEuMSAwIDIuMS0uNCAyLjgtMS4ybDQuNi00LjRhMiAyIDAgMCAwLTIuNzUtMi45MWwtNC4yIDMuOSIvPjxwYXRoIGQ9Im0yIDE2IDYgNiIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iOSIgcj0iMi45Ii8+PGNpcmNsZSBjeD0iNiIgY3k9IjUiIHI9IjMiLz48L3N2Zz4=',
+>>>>>>> 55c01f0 (first commit)
               },
               {
                 title: '24/7 Support',
                 description: 'Help when you need it',
+<<<<<<< HEAD
                 icon: 'https://via.placeholder.com/60',
+=======
+                icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXBob25lLWNhbGwtaWNvbiBsdWNpZGUtcGhvbmUtY2FsbCI+PHBhdGggZD0iTTEzIDJhOSA5IDAgMCAxIDkgOSIvPjxwYXRoIGQ9Ik0xMyA2YTUgNSAwIDAgMSA1IDUiLz48cGF0aCBkPSJNMTMuODMyIDE2LjU2OGExIDEgMCAwIDAgMS4yMTMtLjMwM2wuMzU1LS40NjVBMiAyIDAgMCAxIDE3IDE1aDNhMiAyIDAgMCAxIDIgMnYzYTIgMiAwIDAgMS0yIDJBMTggMTggMCAwIDEgMiA0YTIgMiAwIDAgMSAyLTJoM2EyIDIgMCAwIDEgMiAydjNhMiAyIDAgMCAxLS44IDEuNmwtLjQ2OC4zNTFhMSAxIDAgMCAwLS4yOTIgMS4yMzMgMTQgMTQgMCAwIDAgNi4zOTIgNi4zODQiLz48L3N2Zz4=',
+>>>>>>> 55c01f0 (first commit)
               },
             ].map((feature, index) => (
               <div key={index} className="text-center p-6 bg-white rounded-lg shadow-sm">
