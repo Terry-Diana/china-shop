@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { 
   Heart, ShoppingCart, Share2, Star, CheckCircle, 
   ChevronDown, ChevronUp, Truck, RotateCcw, Shield, 
@@ -17,7 +16,6 @@ const ProductDetail = () => {
   const [currentImage, setCurrentImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<string[]>(['description']);
   const [selectedTab, setSelectedTab] = useState('description');
   
   // Get product data
@@ -35,11 +33,7 @@ const ProductDetail = () => {
       setRelatedProducts(related);
       
       // Update document title
-<<<<<<< HEAD
-      document.title = `${foundProduct.name} | ShopVista`;
-=======
       document.title = `${foundProduct.name} | China Square`;
->>>>>>> 55c01f0 (first commit)
       
       // Scroll to top
       window.scrollTo(0, 0);
@@ -58,16 +52,6 @@ const ProductDetail = () => {
     setIsFavorite(!isFavorite);
     // In a real app, this would call an API to save to user's favorites
   };
-  
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => 
-      prev.includes(section)
-        ? prev.filter(s => s !== section)
-        : [...prev, section]
-    );
-  };
-  
-  const isExpanded = (section: string) => expandedSections.includes(section);
 
   return (
     <div className="bg-gray-50 py-8">
