@@ -35,11 +35,7 @@ const ProductDetail = () => {
       setRelatedProducts(related);
       
       // Update document title
-<<<<<<< HEAD
-      document.title = `${foundProduct.name} | ShopVista`;
-=======
       document.title = `${foundProduct.name} | China Square`;
->>>>>>> 55c01f0 (first commit)
       
       // Scroll to top
       window.scrollTo(0, 0);
