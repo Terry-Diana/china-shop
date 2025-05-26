@@ -1,4 +1,4 @@
-import { ShoppingBag } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface LogoProps {
   className?: string;
@@ -6,10 +6,14 @@ interface LogoProps {
 
 const Logo = ({ className = '' }: LogoProps) => {
   return (
-    <div className={`flex items-center ${className}`}>
-      <ShoppingBag className="text-accent mr-2" size={28} />
+    <Link to="/" className={`flex items-center ${className}`}>
+      <img 
+        src="/china-square-logo.png" 
+        alt="China Square Logo" 
+        className="h-8 w-auto mr-2"
+      />
       <span className="font-bold text-xl tracking-tight text-white">China Square</span>
-    </div>
+    </Link>
   );
 };
 
