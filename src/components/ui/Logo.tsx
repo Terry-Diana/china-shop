@@ -10,9 +10,9 @@ const Logo = ({ className = '' }: LogoProps) => {
       <img 
         src="/china-square-logo.png" 
         alt="China Square Logo" 
-        className="h-8 w-auto mr-2"
+        className="h-20 w-auto mr-20"
       />
-      <span className="font-bold text-xl tracking-tight text-white">China Square</span>
+     
     </Link>
   );
 };
