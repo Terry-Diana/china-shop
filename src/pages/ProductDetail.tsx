@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { 
-  Heart, ShoppingCart, Share2, Star, CheckCircle, 
-  ChevronDown, ChevronUp, Truck, RotateCcw, Shield, 
-  AlertTriangle 
-} from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Heart, ShoppingCart, Share2, Star, CheckCircle, ChevronDown, ChevronUp, Truck, RotateCcw, Shield, AlertTriangle } from 'lucide-react';
 import { mockProducts } from '../data/mockProducts';
 import Button from '../components/ui/Button';
 import ProductCarousel from '../components/home/ProductCarousel';
@@ -18,24 +15,19 @@ const ProductDetail = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [selectedTab, setSelectedTab] = useState('description');
   
-  // Get product data
   useEffect(() => {
-    // In a real app, this would be an API call
     if (id) {
       const foundProduct = mockProducts.find(p => p.id === parseInt(id)) || mockProducts[0];
       setProduct(foundProduct);
       setIsFavorite(foundProduct.isFavorite);
       
-      // Find related products (same category)
       const related = mockProducts
         .filter(p => p.category === foundProduct.category && p.id !== foundProduct.id)
         .slice(0, 5);
       setRelatedProducts(related);
       
-      // Update document title
       document.title = `${foundProduct.name} | China Square`;
       
-      // Scroll to top
       window.scrollTo(0, 0);
     }
   }, [id]);
@@ -50,13 +42,11 @@ const ProductDetail = () => {
   
   const toggleFavorite = () => {
     setIsFavorite(!isFavorite);
-    // In a real app, this would call an API to save to user's favorites
   };
 
   return (
     <div className="bg-gray-50 py-8">
       <div className="container mx-auto px-4">
-        {/* Breadcrumbs */}
         <nav className="text-sm mb-6">
           <ol className="flex items-center space-x-2">
             <li><Link to="/" className="text-gray-500 hover:text-primary">Home</Link></li>
@@ -67,10 +57,8 @@ const ProductDetail = () => {
           </ol>
         </nav>
         
-        {/* Product Details */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="md:flex">
-            {/* Product Images */}
             <div className="md:w-1/2 p-4">
               <div className="sticky top-24">
                 <div className="relative aspect-square overflow-hidden rounded-lg mb-4">
@@ -86,7 +74,6 @@ const ProductDetail = () => {
                   )}
                 </div>
                 
-                {/* Thumbnail Images */}
                 {product.images && product.images.length > 1 && (
                   <div className="flex space-x-2 mt-2">
                     {product.images.map((image, index) => (
@@ -109,9 +96,7 @@ const ProductDetail = () => {
               </div>
             </div>
             
-            {/* Product Info */}
             <div className="md:w-1/2 p-6 md:border-l border-gray-200">
-              {/* Brand & Title */}
               <div className="mb-4">
                 <Link to={`/products?brand=${product.brand}`} className="text-sm text-primary font-medium">
                   {product.brand}
@@ -119,7 +104,6 @@ const ProductDetail = () => {
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">{product.name}</h1>
               </div>
               
-              {/* Ratings */}
               <div className="flex items-center mb-4">
                 <div className="flex text-yellow-400 mr-2">
                   {[...Array(5)].map((_, i) => (
@@ -137,7 +121,6 @@ const ProductDetail = () => {
                 </span>
               </div>
               
-              {/* Price */}
               <div className="mb-6">
                 <div className="flex items-baseline">
                   <span className="text-2xl font-bold text-gray-900">${product.price.toFixed(2)}</span>
@@ -154,10 +137,8 @@ const ProductDetail = () => {
                 )}
               </div>
               
-              {/* Short Description */}
               <p className="text-gray-600 mb-6">{product.description}</p>
               
-              {/* Availability */}
               <div className="flex items-center text-sm mb-6">
                 {product.stock > 0 ? (
                   <>
@@ -175,7 +156,6 @@ const ProductDetail = () => {
                 )}
               </div>
               
-              {/* Add to Cart */}
               <div className="flex flex-wrap items-center gap-4 mb-8">
                 <div className="flex border border-gray-300 rounded-md">
                   <button
@@ -231,7 +211,6 @@ const ProductDetail = () => {
                 </button>
               </div>
               
-              {/* Shipping & Returns */}
               <div className="space-y-4 mb-8 text-sm">
                 <div className="flex">
                   <Truck size={18} className="text-gray-600 mr-3" />
@@ -258,7 +237,6 @@ const ProductDetail = () => {
             </div>
           </div>
           
-          {/* Product Tabs */}
           <div className="border-t border-gray-200 px-6 py-8">
             <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
               {['description', 'specifications', 'reviews'].map((tab) => (
@@ -276,9 +254,7 @@ const ProductDetail = () => {
               ))}
             </div>
             
-            {/* Tab Content */}
             <div>
-              {/* Description */}
               {selectedTab === 'description' && (
                 <div className="prose max-w-none">
                   <p className="mb-4">
@@ -290,7 +266,6 @@ const ProductDetail = () => {
                 </div>
               )}
               
-              {/* Specifications */}
               {selectedTab === 'specifications' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {[
@@ -311,7 +286,6 @@ const ProductDetail = () => {
                 </div>
               )}
               
-              {/* Reviews */}
               {selectedTab === 'reviews' && (
                 <div>
                   <div className="flex items-center mb-6">
@@ -354,7 +328,6 @@ const ProductDetail = () => {
                     <Button variant="primary">Write a Review</Button>
                   </div>
                   
-                  {/* Sample reviews */}
                   <div className="space-y-6">
                     {[
                       {
@@ -397,7 +370,6 @@ const ProductDetail = () => {
           </div>
         </div>
         
-        {/* Related Products */}
         <div className="mt-12">
           <ProductCarousel 
             title="You might also like" 
