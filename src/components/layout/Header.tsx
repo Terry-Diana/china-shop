@@ -72,7 +72,7 @@ const Header = () => {
     >
       <div className="container mx-auto px-4">
         {/* Top navigation bar */}
-        <div className="flex items-center justify-between h-16 md:h-20">
+        <div className="flex items-center justify-between h-24">
           {/* Logo and mobile menu trigger */}
           <div className="flex items-center">
             <button 
@@ -82,9 +82,7 @@ const Header = () => {
             >
               {isMobileMenuOpen ? <X size={24} className="text-white" /> : <Menu size={24} className="text-white" />}
             </button>
-            <Link to="/" className="flex items-center">
-              <Logo className="h-8 w-auto" />
-            </Link>
+            <Logo />
           </div>
 
           {/* Desktop navigation */}
