@@ -22,7 +22,11 @@
     "express": "^4.18.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "@supabase/supabase-js": "^2.40.0"
+    "@supabase/supabase-js": "^2.40.0",
+    "react-beautiful-dnd": "^13.1.1",
+    "react-dropzone": "^14.2.3",
+    "recharts": "^2.12.2",
+    "papaparse": "^5.4.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
@@ -30,6 +34,8 @@
     "@types/node": "^20.11.30",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "@types/react-beautiful-dnd": "^13.1.8",
+    "@types/papaparse": "^5.3.14",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
     "eslint": "^9.9.1",
