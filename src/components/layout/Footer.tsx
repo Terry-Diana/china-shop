@@ -8,6 +8,7 @@ import {
   Shield,
   Clock,
   MapPin,
+  Lock,
 } from "lucide-react";
 import Logo from "../ui/Logo";
 
@@ -192,15 +193,16 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-4 text-lg">About China Square</h4>
             <ul className="space-y-2">
-              <a
-                href="https://chinamall.co.ke/"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Facebook"
-                className="text-gray-300 hover:text-accent-200 text-sm"
-              >
-                About Us
-              </a>
+              <li>
+                <a
+                  href="https://chinamall.co.ke/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 hover:text-accent-200 text-sm"
+                >
+                  About Us
+                </a>
+              </li>
               <li>
                 <Link
                   to="/careers"
@@ -223,6 +225,15 @@ const Footer = () => {
                   className="text-gray-300 hover:text-accent-200 text-sm"
                 >
                   Blog
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/admin/login"
+                  className="flex items-center text-gray-300 hover:text-accent-200 text-sm"
+                >
+                  <Lock size={14} className="mr-1" />
+                  Admin Login
                 </Link>
               </li>
             </ul>
