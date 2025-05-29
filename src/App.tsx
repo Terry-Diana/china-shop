@@ -21,7 +21,7 @@ const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminProducts = lazy(() => import('./pages/admin/AdminProducts'));
 const AdminInventory = lazy(() => import('./pages/admin/AdminInventory'));
-const AdminCMS = lazy(() => import('./pages/admin/AdminCMS'));
+//const AdminCMS = lazy(() => import('./pages/admin/AdminCMS'));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 
 function App() {
