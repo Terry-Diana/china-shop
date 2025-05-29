@@ -26,8 +26,10 @@ const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 
 function App() {
   return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <Routes>
+    <Layout>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
+          
         {/* Admin Routes */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminLayout />}>
@@ -38,22 +40,20 @@ function App() {
           <Route path="analytics" element={<AdminAnalytics />} />
         </Route>
 
-        {/* Customer Routes */}
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="products" element={<ProductList />} />
-          <Route path="products/:category" element={<ProductList />} />
-          <Route path="product/:id" element={<ProductDetail />} />
-          <Route path="cart" element={<Cart />} />
-          <Route path="checkout" element={<Checkout />} />
-          <Route path="login" element={<Login />} />
-          <Route path="signup" element={<Signup />} />
-          <Route path="store-locator" element={<StoreLocator />} />
-          <Route path="wishlist" element={<Wishlist />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/products" element={<ProductList />} />
+          <Route path="/products/:category" element={<ProductList />} />
+          <Route path="/product/:id" element={<ProductDetail />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} /> 
+          <Route path="/store-locator" element={<StoreLocator />} />
+          <Route path="/wishlist" element={<Wishlist />} />
           <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </Layout>
   );
 }
 
