@@ -37,7 +37,9 @@ const CategoryGrid = () => {
 
         {categories.length === 0 ? (
           <div className="text-center py-10">
-            <p className="text-gray-500">No categories available at the moment</p>
+            <p className="text-gray-500">
+              No categories available at the moment
+            </p>
           </div>
         ) : (
           <motion.div

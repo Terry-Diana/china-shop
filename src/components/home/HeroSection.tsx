@@ -1,25 +1,25 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import Button from '../ui/Button';
-import { slides } from '../../data/slides';
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import Button from "../ui/Button";
+import { slides } from "../../data/slides";
 
 const HeroSection = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 5000);
-    
+
     return () => clearInterval(interval);
   }, []);
-  
+
   const goToNextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
   };
-  
+
   const goToPrevSlide = () => {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
@@ -32,7 +32,9 @@ const HeroSection = () => {
     <div className="relative w-full overflow-hidden aspect-[16/9] md:aspect-[21/9] lg:aspect-[25/9]">
       {isLoading && (
         <div className="absolute inset-0 bg-gray-200 flex items-center justify-center z-10">
-          <div className="animate-pulse text-gray-500">Loading hero content...</div>
+          <div className="animate-pulse text-gray-500">
+            Loading hero content...
+          </div>
         </div>
       )}
 
@@ -65,10 +67,12 @@ const HeroSection = () => {
               <p className="text-lg md:text-xl text-white opacity-90 mb-6">
                 {slides[currentSlide].subtitle}
               </p>
-              <Button 
-                variant="accent" 
+              <Button
+                variant="accent"
                 size="lg"
-                onClick={() => window.location.href = slides[currentSlide].buttonLink}
+                onClick={() =>
+                  (window.location.href = slides[currentSlide].buttonLink)
+                }
                 aria-label={`Shop ${slides[currentSlide].title}`}
               >
                 {slides[currentSlide].buttonText}
@@ -99,7 +103,7 @@ const HeroSection = () => {
             key={index}
             onClick={() => setCurrentSlide(index)}
             className={`w-2.5 h-2.5 rounded-full transition-colors ${
-              index === currentSlide ? 'bg-accent' : 'bg-white/50'
+              index === currentSlide ? "bg-accent" : "bg-white/50"
             }`}
             aria-label={`Go to slide ${index + 1}`}
             aria-current={index === currentSlide ? "true" : "false"}
