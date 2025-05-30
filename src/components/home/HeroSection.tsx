@@ -2,45 +2,11 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from '../ui/Button';
-
-interface Slide {
-  id: number;
-  title: string;
-  subtitle: string;
-  buttonText: string;
-  buttonLink: string;
-  image: string;
-}
-
-const slides: Slide[] = [
-  {
-    id: 1,
-    title: "Kitchen Collection",
-    subtitle: "Discover the latest trends for the season",
-    buttonText: "Shop Now",
-    buttonLink: "/products/fashion",
-    image: "https://images.pexels.com/photos/30981356/pexels-photo-30981356/free-photo-of-modern-kitchenware-set-with-stainless-steel-pots.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-  },
-  {
-    id: 2,
-    title: "Tech Essentials",
-    subtitle: "Upgrade your gadgets with the newest releases",
-    buttonText: "Shop Now",
-    buttonLink: "/products/electronics",
-    image: "https://images.pexels.com/photos/27436633/pexels-photo-27436633/free-photo-of-a-desk-with-a-computer-and-a-keyboard-on-it.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-  },
-  {
-    id: 3,
-    title: "Home Makeover",
-    subtitle: "Transform your space with our home collection",
-    buttonText: "Shop Now",
-    buttonLink: "/products/home",
-    image: "https://cdn.pixabay.com/photo/2016/08/26/15/06/home-1622401_960_720.jpg",
-  },
-];
+import { slides } from '../../data/slides';
 
 const HeroSection = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
     const interval = setInterval(() => {
@@ -58,24 +24,35 @@ const HeroSection = () => {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
+  const handleImageLoad = () => {
+    setIsLoading(false);
+  };
+
   return (
     <div className="relative w-full overflow-hidden aspect-[16/9] md:aspect-[21/9] lg:aspect-[25/9]">
-      {/* Slide container */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-gray-200 flex items-center justify-center z-10">
+          <div className="animate-pulse text-gray-500">Loading hero content...</div>
+        </div>
+      )}
+
       <AnimatePresence initial={false} mode="wait">
         <motion.div
-          key={slides[currentSlide].id}
+          key={`slide-${slides[currentSlide].id}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
           className="absolute inset-0"
-          style={{
-            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)), url(${slides[currentSlide].image})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
         >
-          <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-12 lg:px-24">
+          <img
+            src={slides[currentSlide].image}
+            alt=""
+            className="w-full h-full object-cover"
+            onLoad={handleImageLoad}
+            onError={() => setIsLoading(false)}
+          />
+          <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-12 lg:px-24 bg-black/30">
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -92,6 +69,7 @@ const HeroSection = () => {
                 variant="accent" 
                 size="lg"
                 onClick={() => window.location.href = slides[currentSlide].buttonLink}
+                aria-label={`Shop ${slides[currentSlide].title}`}
               >
                 {slides[currentSlide].buttonText}
               </Button>
@@ -100,24 +78,22 @@ const HeroSection = () => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation arrows */}
       <button
-        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white transition-colors"
+        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white transition-colors z-20"
         onClick={goToPrevSlide}
         aria-label="Previous slide"
       >
         <ChevronLeft size={24} />
       </button>
       <button
-        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white transition-colors"
+        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white transition-colors z-20"
         onClick={goToNextSlide}
         aria-label="Next slide"
       >
         <ChevronRight size={24} />
       </button>
 
-      {/* Slide indicators */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
         {slides.map((_, index) => (
           <button
             key={index}
@@ -126,6 +102,7 @@ const HeroSection = () => {
               index === currentSlide ? 'bg-accent' : 'bg-white/50'
             }`}
             aria-label={`Go to slide ${index + 1}`}
+            aria-current={index === currentSlide ? "true" : "false"}
           />
         ))}
       </div>
