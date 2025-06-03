@@ -19,12 +19,10 @@ const AdminLogin = () => {
     setError('');
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (email === 'admin@chinasquare.com' && password === 'admin123') {
-        // Store auth token in localStorage
-        localStorage.setItem('authToken', 'mock-auth-token');
+      const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
+      const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD;
+
+      if (email === adminEmail && password === adminPassword) {
         navigate('/admin');
       } else {
         setError('Invalid credentials. Please try again.');
@@ -120,10 +118,7 @@ const AdminLogin = () => {
             <div>
               <button
                 type="submit"
-                disabled={isLoading}
-                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
-                  isLoading ? 'opacity-75 cursor-not-allowed' : ''
-                }`}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-m shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               >
                 {isLoading ? 'Signing in...' : 'Sign in'}
               </button>

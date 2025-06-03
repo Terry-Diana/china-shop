@@ -39,7 +39,16 @@ function App() {
     <Layout>
       <Suspense fallback={<LoadingSpinner fullScreen />}>
         <Routes>
-          {/* Public Routes */}
+          {/* Admin Routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="inventory" element={<AdminInventory />} />
+            <Route path="cms" element={<AdminCMS />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
+          </Route>
+          
           <Route path="/" element={<Home />} />
           <Route path="/products" element={<ProductList />} />
           <Route path="/products/:category" element={<ProductList />} />
