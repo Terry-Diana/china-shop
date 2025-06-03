@@ -21,7 +21,7 @@ const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminProducts = lazy(() => import('./pages/admin/AdminProducts'));
 const AdminInventory = lazy(() => import('./pages/admin/AdminInventory'));
-//const AdminCMS = lazy(() => import('./pages/admin/AdminCMS'));
+const AdminCMS = lazy(() => import('./pages/admin/AdminCMS'));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 
 function App() {
@@ -29,16 +29,15 @@ function App() {
     <Layout>
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
-          
-        {/* Admin Routes */}
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="products" element={<AdminProducts />} />
-          <Route path="inventory" element={<AdminInventory />} />
-          {/*<Route path="cms" element={<AdminCMS />} />*/}
-          <Route path="analytics" element={<AdminAnalytics />} />
-        </Route>
+          {/* Admin Routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="inventory" element={<AdminInventory />} />
+            <Route path="cms" element={<AdminCMS />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
+          </Route>
 
           <Route path="/" element={<Home />} />
           <Route path="/products" element={<ProductList />} />
@@ -46,8 +45,8 @@ function App() {
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
-           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} /> 
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/store-locator" element={<StoreLocator />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="*" element={<NotFound />} />

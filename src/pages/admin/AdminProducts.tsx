@@ -11,6 +11,7 @@ import {
   Edit2,
   Trash2,
   Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { mockProducts } from '../../data/mockProducts';
@@ -20,13 +21,14 @@ const AdminProducts = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     Papa.parse(file, {
       complete: (results) => {
         console.log('Parsed CSV:', results.data);
-        // Handle CSV data
         setShowUploadModal(false);
       },
       header: true,
@@ -49,6 +51,12 @@ const AdminProducts = () => {
   });
 
   const categories = Array.from(new Set(products.map(p => p.category)));
+
+  const handleProductSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Handle product save logic
+    setShowProductForm(false);
+  };
 
   return (
     <div className="p-6">
@@ -74,6 +82,10 @@ const AdminProducts = () => {
           <Button
             variant="primary"
             icon={<Plus size={18} />}
+            onClick={() => {
+              setSelectedProduct(null);
+              setShowProductForm(true);
+            }}
           >
             Add Product
           </Button>
@@ -192,7 +204,13 @@ const AdminProducts = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button className="text-primary hover:text-primary-dark mr-3">
+                    <button
+                      onClick={() => {
+                        setSelectedProduct(product);
+                        setShowProductForm(true);
+                      }}
+                      className="text-primary hover:text-primary-dark mr-3"
+                    >
                       <Edit2 size={18} />
                     </button>
                     <button className="text-error hover:text-error-dark">
@@ -205,6 +223,115 @@ const AdminProducts = () => {
           </table>
         </div>
       </div>
+
+      {/* Product Form Modal */}
+      {showProductForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4"
+          >
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {selectedProduct ? 'Edit Product' : 'Add New Product'}
+                </h3>
+                <button
+                  onClick={() => setShowProductForm(false)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              <form onSubmit={handleProductSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Product Name
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      placeholder="Enter product name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category
+                    </label>
+                    <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                      {categories.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    rows={3}
+                    placeholder="Enter product description"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Price
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Stock
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Images
+                  </label>
+                  <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                    <div className="mx-auto w-12 h-12 mb-4 text-gray-400">
+                      <ImageIcon size={48} />
+                    </div>
+                    <p className="text-gray-600">
+                      Drag & drop product images here, or click to select
+                    </p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Maximum 5 images, PNG or JPG, max 2MB each
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowProductForm(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button variant="primary" type="submit">
+                    {selectedProduct ? 'Update Product' : 'Add Product'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* CSV Upload Modal */}
       {showUploadModal && (
