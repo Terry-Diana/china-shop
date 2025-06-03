@@ -1,10 +1,11 @@
+// App.tsx
 import { Suspense, lazy } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import AdminLayout from './components/admin/AdminLayout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 
-// Lazy-loaded components for better performance
+// Lazy-loaded components
 const Home = lazy(() => import('./pages/Home'));
 const ProductList = lazy(() => import('./pages/ProductList'));
 const ProductDetail = lazy(() => import('./pages/ProductDetail'));
@@ -24,10 +25,19 @@ const AdminInventory = lazy(() => import('./pages/admin/AdminInventory'));
 const AdminCMS = lazy(() => import('./pages/admin/AdminCMS'));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 
+// Auth guard component
+const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+  const authToken = localStorage.getItem('authToken');
+  if (!authToken) {
+    return <Navigate to="/admin/login" replace />;
+  }
+  return children;
+};
+
 function App() {
   return (
     <Layout>
-      <Suspense fallback={<LoadingSpinner />}>
+      <Suspense fallback={<LoadingSpinner fullScreen />}>
         <Routes>
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -38,7 +48,7 @@ function App() {
             <Route path="cms" element={<AdminCMS />} />
             <Route path="analytics" element={<AdminAnalytics />} />
           </Route>
-
+          
           <Route path="/" element={<Home />} />
           <Route path="/products" element={<ProductList />} />
           <Route path="/products/:category" element={<ProductList />} />
@@ -49,6 +59,24 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/store-locator" element={<StoreLocator />} />
           <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          
+          {/* Admin Protected Routes */}
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="inventory" element={<AdminInventory />} />
+            <Route path="cms" element={<AdminCMS />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
+          </Route>
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

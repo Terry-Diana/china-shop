@@ -51,12 +51,12 @@ const AdminCMS = () => {
     // Handle banner save logic
     setShowBannerForm(false);
   };
-
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Content Management</h1>
+
           <p className="text-gray-600">Manage your website content and banners</p>
         </div>
         <Button
@@ -219,6 +219,7 @@ const AdminCMS = () => {
           </motion.div>
         </div>
       )}
+
 
       {/* SEO Settings */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
