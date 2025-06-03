@@ -1,3 +1,4 @@
+// components/admin/AdminLayout.tsx
 import { ReactNode } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -28,7 +29,8 @@ const AdminLayout = () => {
   ];
 
   const handleLogout = () => {
-    // Handle logout logic here
+    // Clear auth token from storage
+    localStorage.removeItem('authToken');
     navigate('/admin/login');
   };
 
