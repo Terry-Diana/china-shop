@@ -1,38 +1,53 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, ShoppingCart, Trash2 } from 'lucide-react';
 import Button from '../components/ui/Button';
-import { mockProducts } from '../data/mockProducts';
+import { useAuth } from '../hooks/useAuth';
+import { useFavorites } from '../hooks/useFavorites';
+import { useCart } from '../hooks/useCart';
 
 const Wishlist = () => {
-  const [wishlistItems, setWishlistItems] = useState(
-    mockProducts.filter(p => p.isFavorite).slice(0, 4)
-  );
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { favorites, loading, removeFromFavorites } = useFavorites();
+  const { addToCart } = useCart();
 
   useEffect(() => {
-    document.title = 'Your Wishlist | ShopVista';
+    document.title = 'Your Wishlist | China Square';
     window.scrollTo(0, 0);
-  }, []);
 
-  const removeFromWishlist = (productId: number) => {
-    setWishlistItems(prev => prev.filter(item => item.id !== productId));
+    // Redirect to login if not authenticated
+    if (!user && !loading) {
+      navigate('/login', { state: { from: '/wishlist' } });
+    }
+  }, [user, loading, navigate]);
+
+  const moveToCart = async (productId: number) => {
+    try {
+      await addToCart(productId, 1);
+      await removeFromFavorites(productId);
+    } catch (error) {
+      console.error('Error moving item to cart:', error);
+    }
   };
 
-  const moveToCart = (productId: number) => {
-    // In a real app, this would add to cart and remove from wishlist
-    console.log('Moving product to cart:', productId);
-    removeFromWishlist(productId);
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen py-8">
       <div className="container mx-auto px-4">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-8">Your Wishlist</h1>
 
-        {wishlistItems.length > 0 ? (
+        {favorites.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {wishlistItems.map((item) => (
+            {favorites.map((item) => (
               <motion.div
                 key={item.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -42,31 +57,31 @@ const Wishlist = () => {
               >
                 <div className="relative aspect-square">
                   <img
-                    src={item.image}
-                    alt={item.name}
+                    src={item.product.image_url}
+                    alt={item.product.name}
                     className="w-full h-full object-cover"
                   />
-                  {item.discount > 0 && (
+                  {item.product.discount > 0 && (
                     <div className="absolute top-2 left-2 bg-accent text-white text-xs font-bold px-2 py-1 rounded">
-                      {item.discount}% OFF
+                      {item.product.discount}% OFF
                     </div>
                   )}
                 </div>
 
                 <div className="p-4">
-                  <Link to={`/product/${item.id}`} className="block">
+                  <Link to={`/product/${item.product.id}`} className="block">
                     <h3 className="text-lg font-medium text-gray-900 hover:text-primary transition-colors mb-2">
-                      {item.name}
+                      {item.product.name}
                     </h3>
                   </Link>
 
                   <div className="flex items-baseline mb-2">
                     <span className="text-lg font-bold text-gray-900">
-                      ${item.price.toFixed(2)}
+                      ${item.product.price.toFixed(2)}
                     </span>
-                    {item.originalPrice > item.price && (
+                    {item.product.original_price && item.product.original_price > item.product.price && (
                       <span className="ml-2 text-sm text-gray-500 line-through">
-                        ${item.originalPrice.toFixed(2)}
+                        ${item.product.original_price.toFixed(2)}
                       </span>
                     )}
                   </div>
@@ -77,7 +92,7 @@ const Wishlist = () => {
                         <svg
                           key={i}
                           className={`w-4 h-4 ${
-                            i < item.rating ? 'text-yellow-400' : 'text-gray-300'
+                            i < item.product.rating ? 'text-yellow-400' : 'text-gray-300'
                           }`}
                           fill="currentColor"
                           viewBox="0 0 20 20"
@@ -86,7 +101,7 @@ const Wishlist = () => {
                         </svg>
                       ))}
                     </div>
-                    <span className="ml-1">({item.reviewCount})</span>
+                    <span className="ml-1">({item.product.review_count})</span>
                   </div>
 
                   <div className="flex gap-2">
@@ -94,12 +109,12 @@ const Wishlist = () => {
                       variant="primary"
                       fullWidth
                       icon={<ShoppingCart size={18} />}
-                      onClick={() => moveToCart(item.id)}
+                      onClick={() => moveToCart(item.product.id)}
                     >
                       Move to Cart
                     </Button>
                     <button
-                      onClick={() => removeFromWishlist(item.id)}
+                      onClick={() => removeFromFavorites(item.product.id)}
                       className="p-2 text-gray-400 hover:text-error transition-colors"
                       aria-label="Remove from wishlist"
                     >
@@ -127,7 +142,7 @@ const Wishlist = () => {
           </div>
         )}
 
-        {wishlistItems.length > 0 && (
+        {favorites.length > 0 && (
           <div className="mt-8 text-center">
             <Link to="/products">
               <Button variant="outline">
