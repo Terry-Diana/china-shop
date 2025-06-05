@@ -1,10 +1,18 @@
-import { Link } from "react-router-dom";
-import { ShoppingCart, User, Heart } from "lucide-react";
-import Button from "../../ui/Button";
+import { Link } from 'react-router-dom';
+import { ShoppingCart, User, Heart, LogOut } from 'lucide-react';
+import Button from '../../ui/Button';
 import { useAuth } from '../../../hooks/useAuth';
 
 const ActionButtons = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   return (
     <div className="flex items-center space-x-1">
@@ -25,14 +33,16 @@ const ActionButtons = () => {
           3
         </span>
       </Link>
+      
       {user ? (
-        <div className="hidden md:flex items-center space-x-3">
+        <div className="hidden md:flex items-center space-x-4">
           <span className="text-white">{user.first_name}</span>
           <button 
-            onClick={() => {}} 
-            className="text-white hover:text-accent-200"
+            onClick={handleLogout}
+            className="text-white hover:text-accent-200 flex items-center space-x-1"
           >
-            <User size={24} />
+            <LogOut size={20} />
+            <span className="text-sm">Logout</span>
           </button>
         </div>
       ) : (
