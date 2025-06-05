@@ -4,6 +4,7 @@ import Layout from './components/layout/Layout';
 import AdminLayout from './components/admin/AdminLayout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import { CartProvider } from './contexts/CartContext';
+import { ProductProvider } from './contexts/ProductContext';
 
 // Lazy-loaded components
 const Home = lazy(() => import('./pages/Home'));
@@ -36,53 +37,55 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 
 function App() {
   return (
-    <CartProvider>
-      <Layout>
-        <Suspense fallback={<LoadingSpinner fullScreen />}>
-          <Routes>
-            {/* Admin Routes */}
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<AdminDashboard />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="inventory" element={<AdminInventory />} />
-              <Route path="cms" element={<AdminCMS />} />
-              <Route path="analytics" element={<AdminAnalytics />} />
-            </Route>
-            
-            <Route path="/" element={<Home />} />
-            <Route path="/products" element={<ProductList />} />
-            <Route path="/products/:category" element={<ProductList />} />
-            <Route path="/product/:id" element={<ProductDetail />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/store-locator" element={<StoreLocator />} />
-            <Route path="/wishlist" element={<Wishlist />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            
-            {/* Admin Protected Routes */}
-            <Route 
-              path="/admin" 
-              element={
-                <ProtectedRoute>
-                  <AdminLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<AdminDashboard />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="inventory" element={<AdminInventory />} />
-              <Route path="cms" element={<AdminCMS />} />
-              <Route path="analytics" element={<AdminAnalytics />} />
-            </Route>
+    <ProductProvider>
+      <CartProvider>
+        <Layout>
+          <Suspense fallback={<LoadingSpinner fullScreen />}>
+            <Routes>
+              {/* Admin Routes */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="inventory" element={<AdminInventory />} />
+                <Route path="cms" element={<AdminCMS />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
+              </Route>
+              
+              <Route path="/" element={<Home />} />
+              <Route path="/products" element={<ProductList />} />
+              <Route path="/products/:category" element={<ProductList />} />
+              <Route path="/product/:id" element={<ProductDetail />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/store-locator" element={<StoreLocator />} />
+              <Route path="/wishlist" element={<Wishlist />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              
+              {/* Admin Protected Routes */}
+              <Route 
+                path="/admin" 
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<AdminDashboard />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="inventory" element={<AdminInventory />} />
+                <Route path="cms" element={<AdminCMS />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
+              </Route>
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </Layout>
-    </CartProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </Layout>
+      </CartProvider>
+    </ProductProvider>
   );
 }
 
