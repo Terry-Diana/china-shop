@@ -43,6 +43,9 @@ export const useAuth = create<AuthState>()(
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
         });
         if (error) throw error;
         return data;
@@ -53,6 +56,9 @@ export const useAuth = create<AuthState>()(
           password,
         });
         if (error) throw error;
+        if (data.user) {
+          set({ user: data.user });
+        }
         return data;
       },
     }),
