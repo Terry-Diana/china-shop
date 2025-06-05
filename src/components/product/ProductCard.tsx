@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Star } from 'lucide-react';
 import { Product } from '../../types/product';
+import { useAuth } from '../../hooks/useAuth';
+import { useCart } from '../../hooks/useCart';
+import { useFavorites } from '../../hooks/useFavorites';
 
 interface ProductCardProps {
   product: Product;
@@ -10,20 +13,53 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(product.isFavorite);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { addToCart } = useCart();
+  const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const toggleFavorite = (e: React.MouseEvent) => {
+  const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
-    // In a real app, this would call an API to save to user's favorites
+
+    if (!user) {
+      navigate('/login', { state: { from: window.location.pathname } });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      if (isFavorite(product.id)) {
+        await removeFromFavorites(product.id);
+      } else {
+        await addToFavorites(product.id);
+      }
+    } catch (error) {
+      console.error('Error updating favorites:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const addToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // In a real app, this would add the product to the cart
-    console.log(`Added ${product.name} to cart`);
+
+    if (!user) {
+      navigate('/login', { state: { from: window.location.pathname } });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await addToCart(product.id, 1);
+      // You could add a toast notification here
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -46,12 +82,17 @@ const ProductCard = ({ product }: ProductCardProps) => {
         {/* Favorite button */}
         <button
           className={`absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/80 backdrop-blur-sm transition-colors ${
-            isFavorite ? 'text-accent' : 'text-gray-400 hover:text-accent'
+            isFavorite(product.id) ? 'text-accent' : 'text-gray-400 hover:text-accent'
           }`}
-          onClick={toggleFavorite}
-          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          onClick={handleFavoriteClick}
+          disabled={isLoading}
+          aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
         >
-          <Heart size={18} fill={isFavorite ? "#bb313e" : "none"} />
+          <Heart 
+            size={18} 
+            fill={isFavorite(product.id) ? "#bb313e" : "none"} 
+            className={isLoading ? "animate-pulse" : ""}
+          />
         </button>
         
         {/* Product image */}
@@ -102,11 +143,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
           transition={{ duration: 0.3 }}
         >
           <button
-            onClick={addToCart}
-            className="w-full py-2 px-4 bg-primary hover:bg-primary-dark text-white rounded flex items-center justify-center text-sm font-medium transition-colors"
+            onClick={handleAddToCart}
+            disabled={isLoading}
+            className="w-full py-2 px-4 bg-primary hover:bg-primary-dark text-white rounded flex items-center justify-center text-sm font-medium transition-colors disabled:opacity-75"
           >
             <ShoppingCart size={16} className="mr-2" />
-            Add to Cart
+            {isLoading ? 'Adding...' : 'Add to Cart'}
           </button>
         </motion.div>
       </Link>
