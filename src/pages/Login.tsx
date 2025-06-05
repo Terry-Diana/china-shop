@@ -41,7 +41,6 @@ const Login = () => {
       navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
-    } finally {
       setLoading(false);
     }
   };
@@ -49,6 +48,9 @@ const Login = () => {
   const handleSocialLogin = async (provider: 'google' | 'facebook') => {
     try {
       await signInWithProvider(provider);
+      // Get the redirect path from location state or default to home
+      const from = location.state?.from || '/';
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || `Failed to sign in with ${provider}`);
     }
