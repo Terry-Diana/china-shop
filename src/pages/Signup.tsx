@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, Eye, EyeOff, Phone } from 'lucide-react';
 import Button from '../components/ui/Button';
+import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 
 const Signup = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { signUp } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -16,9 +21,11 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    document.title = 'Sign Up | ShopVista';
+    document.title = 'Sign Up | China Square';
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,10 +33,62 @@ const Signup = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle signup logic here
-    console.log('Signup attempt:', formData);
+    setError('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (!agreeToTerms) {
+      setError('Please agree to the Terms and Conditions');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await signUp(formData.email, formData.password);
+      if (error) throw error;
+
+      // Create user profile
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: data.user?.id,
+          email: formData.email,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+        });
+
+      if (profileError) throw profileError;
+
+      // Get the redirect path from location state or default to home
+      const from = location.state?.from || '/';
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign up');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSocialSignup = async (provider: 'google' | 'facebook') => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message || `Failed to sign up with ${provider}`);
+    }
   };
 
   return (
@@ -52,8 +111,13 @@ const Signup = () => {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white py-8 px-4 shadow-sm rounded-lg sm:px-10"
         >
+          {error && (
+            <div className="mb-4 p-3 bg-error-50 text-error rounded-md text-sm">
+              {error}
+            </div>
+          )}
+
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Name Fields */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
                 <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
@@ -72,6 +136,7 @@ const Signup = () => {
                     onChange={handleInputChange}
                     className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                     placeholder="John"
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -93,12 +158,12 @@ const Signup = () => {
                     onChange={handleInputChange}
                     className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                     placeholder="Doe"
+                    disabled={loading}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
@@ -117,11 +182,11 @@ const Signup = () => {
                   onChange={handleInputChange}
                   className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="john.doe@example.com"
+                  disabled={loading}
                 />
               </div>
             </div>
 
-            {/* Phone */}
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
                 Phone number
@@ -140,11 +205,11 @@ const Signup = () => {
                   onChange={handleInputChange}
                   className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="+1 (555) 000-0000"
+                  disabled={loading}
                 />
               </div>
             </div>
 
-            {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
@@ -162,6 +227,7 @@ const Signup = () => {
                   onChange={handleInputChange}
                   className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="••••••••"
+                  disabled={loading}
                 />
                 <button
                   type="button"
@@ -177,7 +243,6 @@ const Signup = () => {
               </div>
             </div>
 
-            {/* Confirm Password */}
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
                 Confirm Password
@@ -195,6 +260,7 @@ const Signup = () => {
                   onChange={handleInputChange}
                   className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="••••••••"
+                  disabled={loading}
                 />
                 <button
                   type="button"
@@ -210,7 +276,6 @@ const Signup = () => {
               </div>
             </div>
 
-            {/* Terms and Conditions */}
             <div className="flex items-center">
               <input
                 id="terms"
@@ -232,21 +297,19 @@ const Signup = () => {
               </label>
             </div>
 
-            {/* Submit button */}
             <div>
               <Button
                 type="submit"
                 variant="primary"
                 size="lg"
                 fullWidth
-                disabled={!agreeToTerms}
+                disabled={loading || !agreeToTerms}
               >
-                Create Account
+                {loading ? 'Creating account...' : 'Create Account'}
               </Button>
             </div>
           </form>
 
-          {/* Social signup */}
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -260,6 +323,7 @@ const Signup = () => {
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
+                onClick={() => handleSocialSignup('google')}
                 className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
               >
                 <span className="sr-only">Sign up with Google</span>
@@ -272,6 +336,7 @@ const Signup = () => {
               </button>
               <button
                 type="button"
+                onClick={() => handleSocialSignup('facebook')}
                 className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
               >
                 <span className="sr-only">Sign up with Facebook</span>
