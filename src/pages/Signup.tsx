@@ -31,19 +31,49 @@ const Signup = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    setError('');
+  };
+
+  const validateForm = () => {
+    // Email validation using a comprehensive regex pattern
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+
+    // Password validation
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return false;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return false;
+    }
+
+    // Phone validation (basic format check)
+    const phoneRegex = /^\+?[\d\s-()]{10,}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      setError('Please enter a valid phone number');
+      return false;
+    }
+
+    if (!agreeToTerms) {
+      setError('Please agree to the Terms and Conditions');
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (!agreeToTerms) {
-      setError('Please agree to the Terms and Conditions');
+    if (!validateForm()) {
       return;
     }
 
@@ -208,6 +238,7 @@ const Signup = () => {
                   disabled={loading}
                 />
               </div>
+              <p className="mt-1 text-sm text-gray-500">Format: +1 (555) 000-0000</p>
             </div>
 
             <div>
@@ -228,6 +259,7 @@ const Signup = () => {
                   className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="••••••••"
                   disabled={loading}
+                  minLength={6}
                 />
                 <button
                   type="button"
@@ -241,6 +273,7 @@ const Signup = () => {
                   )}
                 </button>
               </div>
+              <p className="mt-1 text-sm text-gray-500">Must be at least 6 characters</p>
             </div>
 
             <div>
@@ -261,6 +294,7 @@ const Signup = () => {
                   className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="••••••••"
                   disabled={loading}
+                  minLength={6}
                 />
                 <button
                   type="button"
