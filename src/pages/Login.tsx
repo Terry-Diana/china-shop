@@ -4,12 +4,11 @@ import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../lib/supabase';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn } = useAuth();
+  const { signIn, signInWithProvider } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -30,9 +29,6 @@ const Login = () => {
       const { data, error: signInError } = await signIn(email, password);
       
       if (signInError) {
-        if (signInError.message === 'Invalid login credentials') {
-          throw new Error('Invalid email or password. Please try again.');
-        }
         throw signInError;
       }
 
@@ -52,14 +48,7 @@ const Login = () => {
 
   const handleSocialLogin = async (provider: 'google' | 'facebook') => {
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-      
-      if (error) throw error;
+      await signInWithProvider(provider);
     } catch (err: any) {
       setError(err.message || `Failed to sign in with ${provider}`);
     }

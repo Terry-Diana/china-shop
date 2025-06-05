@@ -11,42 +11,29 @@ interface User {
 
 interface AuthState {
   user: User | null;
-  admin: {
-    id: string;
-    email: string;
-    role: 'admin' | 'super_admin';
-    name: string;
-  } | null;
-  token: string | null;
+  loading: boolean;
   setUser: (user: User | null) => void;
-  setAdmin: (admin: any | null) => void;
-  setToken: (token: string | null) => void;
-  logout: () => void;
-  signUp: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, userData?: Partial<User>) => Promise<any>;
   signIn: (email: string, password: string) => Promise<any>;
+  signInWithProvider: (provider: 'google' | 'facebook') => Promise<any>;
+  logout: () => Promise<void>;
 }
 
 export const useAuth = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
-      admin: null,
-      token: null,
+      loading: true,
       setUser: (user) => set({ user }),
-      setAdmin: (admin) => set({ admin }),
-      setToken: (token) => set({ token }),
-      logout: async () => {
-        await supabase.auth.signOut();
-        set({ user: null, admin: null, token: null });
-      },
-      signUp: async (email: string, password: string) => {
+      signUp: async (email: string, password: string, userData?: Partial<User>) => {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            data: userData,
           },
         });
+
         if (error) throw error;
         return data;
       },
@@ -55,11 +42,43 @@ export const useAuth = create<AuthState>()(
           email,
           password,
         });
+
         if (error) throw error;
+
         if (data.user) {
-          set({ user: data.user });
+          // Get user profile data
+          const { data: profile } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+          set({ 
+            user: {
+              id: data.user.id,
+              email: data.user.email!,
+              ...profile,
+            }
+          });
         }
+
         return data;
+      },
+      signInWithProvider: async (provider: 'google' | 'facebook') => {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+
+        if (error) throw error;
+        return data;
+      },
+      logout: async () => {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        set({ user: null });
       },
     }),
     {
@@ -67,3 +86,23 @@ export const useAuth = create<AuthState>()(
     }
   )
 );
+
+// Initialize auth state
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+
+    useAuth.getState().setUser({
+      id: session.user.id,
+      email: session.user.email!,
+      ...profile,
+    });
+  } else {
+    useAuth.getState().setUser(null);
+  }
+  useAuth.setState({ loading: false });
+});
