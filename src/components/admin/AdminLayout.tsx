@@ -1,4 +1,3 @@
-// components/admin/AdminLayout.tsx
 import { ReactNode } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -11,14 +10,20 @@ import {
   LogOut,
   Menu,
   X,
+  UserPlus,
 } from 'lucide-react';
 import Logo from '../ui/Logo';
 import { useState } from 'react';
+import RegisterAdminModal from './RegisterAdminModal';
+import Button from '../ui/Button';
+import { useAuth } from '../../hooks/useAuth';
 
 const AdminLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { admin, logout } = useAuth();
 
   const menuItems = [
     { path: '/admin', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
@@ -29,9 +34,13 @@ const AdminLayout = () => {
   ];
 
   const handleLogout = () => {
-    // Clear auth token from storage
-    localStorage.removeItem('authToken');
+    logout();
     navigate('/admin/login');
+  };
+
+  const handleRegisterSuccess = () => {
+    // You could add a success notification here
+    setShowRegisterModal(false);
   };
 
   return (
@@ -66,7 +75,17 @@ const AdminLayout = () => {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4">
+        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
+          {admin?.role === 'super_admin' && (
+            <Button
+              variant="outline"
+              fullWidth
+              icon={<UserPlus size={18} />}
+              onClick={() => setShowRegisterModal(true)}
+            >
+              Register Admin
+            </Button>
+          )}
           <button
             onClick={handleLogout}
             className="flex items-center space-x-3 px-4 py-3 w-full text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -89,7 +108,9 @@ const AdminLayout = () => {
               {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Admin User</span>
+              <span className="text-sm text-gray-600">
+                {admin?.name || 'Admin User'}
+              </span>
             </div>
           </div>
         </header>
@@ -99,6 +120,14 @@ const AdminLayout = () => {
           <Outlet />
         </main>
       </div>
+
+      {/* Register Admin Modal */}
+      {showRegisterModal && (
+        <RegisterAdminModal
+          onClose={() => setShowRegisterModal(false)}
+          onSuccess={handleRegisterSuccess}
+        />
+      )}
     </div>
   );
 };
