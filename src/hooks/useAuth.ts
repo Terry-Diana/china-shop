@@ -21,7 +21,7 @@ interface AuthState {
 
 export const useAuth = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       loading: true,
       setUser: (user) => set({ user }),
@@ -31,10 +31,25 @@ export const useAuth = create<AuthState>()(
           password,
           options: {
             data: userData,
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         });
 
         if (error) throw error;
+
+        // Create user profile
+        if (data.user) {
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert({
+              id: data.user.id,
+              email: data.user.email,
+              ...userData,
+            });
+
+          if (profileError) throw profileError;
+        }
+
         return data;
       },
       signIn: async (email: string, password: string) => {
@@ -46,7 +61,6 @@ export const useAuth = create<AuthState>()(
         if (error) throw error;
 
         if (data.user) {
-          // Get user profile data
           const { data: profile } = await supabase
             .from('users')
             .select('*')
