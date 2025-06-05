@@ -20,7 +20,6 @@ const Signup = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
 
   useEffect(() => {
@@ -72,8 +71,6 @@ const Signup = () => {
       return;
     }
 
-    setLoading(true);
-
     try {
       const { data, error: signUpError } = await signUp(formData.email, formData.password, {
         first_name: formData.firstName,
@@ -99,14 +96,13 @@ const Signup = () => {
     } catch (err: any) {
       setError(err.message || 'Failed to sign up');
       setSignupSuccess(false);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleSocialSignup = async (provider: 'google' | 'facebook') => {
     try {
       await signInWithProvider(provider);
+      navigate('/');
     } catch (err: any) {
       setError(err.message || `Failed to sign up with ${provider}`);
     }
@@ -189,7 +185,6 @@ const Signup = () => {
                     onChange={handleInputChange}
                     className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                     placeholder="John"
-                    disabled={loading}
                   />
                 </div>
               </div>
@@ -211,7 +206,6 @@ const Signup = () => {
                     onChange={handleInputChange}
                     className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                     placeholder="Doe"
-                    disabled={loading}
                   />
                 </div>
               </div>
@@ -235,7 +229,6 @@ const Signup = () => {
                   onChange={handleInputChange}
                   className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="john.doe@example.com"
-                  disabled={loading}
                 />
               </div>
             </div>
@@ -258,7 +251,6 @@ const Signup = () => {
                   onChange={handleInputChange}
                   className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="+1 (555) 000-0000"
-                  disabled={loading}
                 />
               </div>
               <p className="mt-1 text-sm text-gray-500">Format: +1 (555) 000-0000</p>
@@ -281,7 +273,6 @@ const Signup = () => {
                   onChange={handleInputChange}
                   className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="••••••••"
-                  disabled={loading}
                   minLength={6}
                 />
                 <button
@@ -316,7 +307,6 @@ const Signup = () => {
                   onChange={handleInputChange}
                   className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="••••••••"
-                  disabled={loading}
                   minLength={6}
                 />
                 <button
@@ -360,9 +350,9 @@ const Signup = () => {
                 variant="primary"
                 size="lg"
                 fullWidth
-                disabled={loading || !agreeToTerms}
+                disabled={!agreeToTerms}
               >
-                {loading ? 'Creating account...' : 'Create Account'}
+                Create Account
               </Button>
             </div>
           </form>

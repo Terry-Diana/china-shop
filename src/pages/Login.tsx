@@ -14,7 +14,6 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     document.title = 'Login | China Square';
@@ -23,7 +22,6 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
     try {
       const { data, error: signInError } = await signIn(email, password);
@@ -41,7 +39,6 @@ const Login = () => {
       navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
-      setLoading(false);
     }
   };
 
@@ -101,7 +98,6 @@ const Login = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="Enter your email"
-                  disabled={loading}
                 />
               </div>
             </div>
@@ -123,8 +119,7 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                  placeholder="Enter your password"
-                  disabled={loading}
+                  placeholder="••••••••"
                 />
                 <button
                   type="button"
@@ -168,9 +163,8 @@ const Login = () => {
                 variant="primary"
                 size="lg"
                 fullWidth
-                disabled={loading}
               >
-                {loading ? 'Signing in...' : 'Sign in'}
+                Sign in
               </Button>
             </div>
           </form>
