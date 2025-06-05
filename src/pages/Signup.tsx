@@ -23,6 +23,7 @@ const Signup = () => {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   useEffect(() => {
     document.title = 'Sign Up | China Square';
@@ -31,7 +32,6 @@ const Signup = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear error when user starts typing
     setError('');
   };
 
@@ -80,25 +80,38 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await signUp(formData.email, formData.password);
-      if (error) throw error;
+      const { data, error: signUpError } = await signUp(formData.email, formData.password);
+      
+      if (signUpError) {
+        throw signUpError;
+      }
 
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: data.user?.id,
-          email: formData.email,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone: formData.phone,
-        });
+      // Check if we have a user object
+      if (data?.user) {
+        try {
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert({
+              id: data.user.id,
+              email: formData.email,
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              phone: formData.phone,
+            });
 
-      if (profileError) throw profileError;
+          if (profileError) throw profileError;
 
-      // Get the redirect path from location state or default to home
-      const from = location.state?.from || '/';
-      navigate(from, { replace: true });
+          // Get the redirect path from location state or default to home
+          const from = location.state?.from || '/';
+          navigate(from, { replace: true });
+        } catch (profileErr: any) {
+          console.error('Error creating user profile:', profileErr);
+          setError('Account created but profile setup failed. Please contact support.');
+        }
+      } else {
+        // If no user object but also no error, it means email confirmation is required
+        setSignupSuccess(true);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to sign up');
     } finally {
@@ -120,6 +133,23 @@ const Signup = () => {
       setError(err.message || `Failed to sign up with ${provider}`);
     }
   };
+
+  if (signupSuccess) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white py-8 px-4 shadow-sm rounded-lg sm:px-10">
+            <h2 className="text-2xl font-bold text-center text-gray-900 mb-4">
+              Check your email
+            </h2>
+            <p className="text-center text-gray-600">
+              We've sent you an email with a confirmation link. Please check your inbox and click the link to complete your registration.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

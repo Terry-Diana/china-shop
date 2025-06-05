@@ -27,8 +27,18 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await signIn(email, password);
-      if (error) throw error;
+      const { data, error: signInError } = await signIn(email, password);
+      
+      if (signInError) {
+        if (signInError.message === 'Invalid login credentials') {
+          throw new Error('Invalid email or password. Please try again.');
+        }
+        throw signInError;
+      }
+
+      if (!data?.user) {
+        throw new Error('Login failed. Please try again.');
+      }
 
       // Get the redirect path from location state or default to home
       const from = location.state?.from || '/';
