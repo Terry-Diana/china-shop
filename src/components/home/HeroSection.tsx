@@ -54,7 +54,7 @@ const HeroSection = () => {
             onLoad={handleImageLoad}
             onError={() => setIsLoading(false)}
           />
-          <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-12 lg:px-24 bg-black/30">
+          <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-12 lg:px-24">
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}

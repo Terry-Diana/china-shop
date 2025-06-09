@@ -1,10 +1,14 @@
+import homemakeover from "../media/img/homemakeover.jpg";
+import beautyessentials from "../media/img/beautyessentials.jpg";
+import kitchenessentials from "../media/img/kitchenessentials.jpg"
+
 interface Slide {
   id: number;
   title: string;
   subtitle: string;
   buttonText: string;
   buttonLink: string;
-  image: string;
+  image?: string;
 }
 
 export const slides: Slide[] = [
@@ -14,15 +18,15 @@ export const slides: Slide[] = [
     subtitle: "Discover the latest trends for the season",
     buttonText: "Shop Now",
     buttonLink: "/products/fashion",
-    image: "https://images.pexels.com/photos/30981356/pexels-photo-30981356/free-photo-of-modern-kitchenware-set-with-stainless-steel-pots.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    image: kitchenessentials,
   },
   {
     id: 2,
-    title: "Tech Essentials",
-    subtitle: "Upgrade your gadgets with the newest releases",
+    title: "Beauty Essentials",
+    subtitle: "Step up and glow",
     buttonText: "Shop Now",
     buttonLink: "/products/electronics",
-    image: "https://images.pexels.com/photos/27436633/pexels-photo-27436633/free-photo-of-a-desk-with-a-computer-and-a-keyboard-on-it.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    image: beautyessentials,
   },
   {
     id: 3,
@@ -30,6 +34,6 @@ export const slides: Slide[] = [
     subtitle: "Transform your space with our home collection",
     buttonText: "Shop Now",
     buttonLink: "/products/home",
-    image: "https://cdn.pixabay.com/photo/2016/08/26/15/06/home-1622401_960_720.jpg",
+    image: homemakeover,
   },
 ];
