@@ -11,11 +11,6 @@ const ActionButtons = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      // Clear all local storage and session storage
-      localStorage.clear();
-      sessionStorage.clear();
-      // Force a complete page reload to reset all state
-      window.location.reload();
     } catch (error) {
       console.error('Error logging out:', error);
       // Force reload even if logout fails

@@ -50,18 +50,23 @@ export const useAuth = create<AuthState>()(
 
           // Create user profile but DON'T set user state (don't auto-login)
           if (data.user) {
-            const { error: profileError } = await supabase
-              .from('users')
-              .insert({
-                id: data.user.id,
-                email: data.user.email,
-                first_name: userData?.first_name,
-                last_name: userData?.last_name,
-              });
+            try {
+              const { error: profileError } = await supabase
+                .from('users')
+                .insert({
+                  id: data.user.id,
+                  email: data.user.email,
+                  first_name: userData?.first_name,
+                  last_name: userData?.last_name,
+                });
 
-            if (profileError) {
-              console.error('Profile creation error:', profileError);
-              // Don't throw here, signup was successful
+              if (profileError) {
+                console.error('Profile creation error:', profileError);
+                // Don't throw here, signup was successful
+              }
+            } catch (profileErr) {
+              console.error('Profile creation failed:', profileErr);
+              // Continue anyway, user can be created later
             }
           }
 
@@ -87,29 +92,44 @@ export const useAuth = create<AuthState>()(
 
           if (data.user) {
             // Fetch user profile
-            const { data: profile, error: profileError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', data.user.id)
-              .single();
-
-            if (profileError) {
-              console.error('Profile fetch error:', profileError);
-              // Create profile if it doesn't exist
-              const { error: createError } = await supabase
+            let profile = null;
+            try {
+              const { data: profileData, error: profileError } = await supabase
                 .from('users')
-                .insert({
-                  id: data.user.id,
-                  email: data.user.email!,
-                  first_name: data.user.user_metadata?.first_name,
-                  last_name: data.user.user_metadata?.last_name,
-                });
-              
-              if (createError) {
-                console.error('Profile creation error:', createError);
+                .select('*')
+                .eq('id', data.user.id)
+                .single();
+
+              if (profileError && profileError.code !== 'PGRST116') {
+                console.error('Profile fetch error:', profileError);
+              } else {
+                profile = profileData;
+              }
+            } catch (profileErr) {
+              console.error('Profile fetch failed:', profileErr);
+            }
+
+            // If no profile exists, create one
+            if (!profile) {
+              try {
+                const { error: createError } = await supabase
+                  .from('users')
+                  .insert({
+                    id: data.user.id,
+                    email: data.user.email!,
+                    first_name: data.user.user_metadata?.first_name,
+                    last_name: data.user.user_metadata?.last_name,
+                  });
+                
+                if (createError) {
+                  console.error('Profile creation error:', createError);
+                }
+              } catch (createErr) {
+                console.error('Profile creation failed:', createErr);
               }
             }
 
+            // Set user state
             set({ 
               user: {
                 id: data.user.id,
@@ -173,11 +193,43 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   
   if (session?.user && event === 'SIGNED_IN') {
     try {
-      const { data: profile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+      // Fetch user profile
+      let profile = null;
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Profile fetch error:', profileError);
+        } else {
+          profile = profileData;
+        }
+      } catch (profileErr) {
+        console.error('Profile fetch failed:', profileErr);
+      }
+
+      // If no profile exists, create one
+      if (!profile) {
+        try {
+          const { error: createError } = await supabase
+            .from('users')
+            .insert({
+              id: session.user.id,
+              email: session.user.email!,
+              first_name: session.user.user_metadata?.first_name,
+              last_name: session.user.user_metadata?.last_name,
+            });
+          
+          if (createError) {
+            console.error('Profile creation error:', createError);
+          }
+        } catch (createErr) {
+          console.error('Profile creation failed:', createErr);
+        }
+      }
 
       useAuth.getState().setUser({
         id: session.user.id,
@@ -186,7 +238,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         last_name: profile?.last_name || session.user.user_metadata?.last_name,
       });
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error('Error handling auth state change:', error);
     }
   } else if (event === 'SIGNED_OUT') {
     useAuth.getState().setUser(null);
