@@ -37,65 +37,94 @@ export const useAuth = create<AuthState>()(
       setUser: (user) => set({ user }),
       setAdmin: (admin) => set({ admin }),
       signUp: async (email: string, password: string, userData?: Partial<User>) => {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: userData,
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
+        try {
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: userData,
+            },
+          });
 
-        if (error) throw error;
+          if (error) throw error;
 
-        // Create user profile but DON'T set user state (don't auto-login)
-        if (data.user) {
-          const { error: profileError } = await supabase
-            .from('users')
-            .insert({
-              id: data.user.id,
-              email: data.user.email,
-              first_name: userData?.first_name,
-              last_name: userData?.last_name,
-            });
+          // Create user profile but DON'T set user state (don't auto-login)
+          if (data.user) {
+            const { error: profileError } = await supabase
+              .from('users')
+              .insert({
+                id: data.user.id,
+                email: data.user.email,
+                first_name: userData?.first_name,
+                last_name: userData?.last_name,
+              });
 
-          if (profileError) throw profileError;
-        }
-
-        return data;
-      },
-      signIn: async (email: string, password: string) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          // Check if it's a user not found error
-          if (error.message.includes('Invalid login credentials')) {
-            throw new Error('User not found, Sign Up');
+            if (profileError) {
+              console.error('Profile creation error:', profileError);
+              // Don't throw here, signup was successful
+            }
           }
+
+          return data;
+        } catch (error) {
+          console.error('Signup error:', error);
           throw error;
         }
-
-        if (data.user) {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-
-          set({ 
-            user: {
-              id: data.user.id,
-              email: data.user.email!,
-              first_name: profile?.first_name,
-              last_name: profile?.last_name,
-            }
+      },
+      signIn: async (email: string, password: string) => {
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
           });
-        }
 
-        return data;
+          if (error) {
+            if (error.message.includes('Invalid login credentials')) {
+              throw new Error('Invalid email or password');
+            }
+            throw error;
+          }
+
+          if (data.user) {
+            // Fetch user profile
+            const { data: profile, error: profileError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', data.user.id)
+              .single();
+
+            if (profileError) {
+              console.error('Profile fetch error:', profileError);
+              // Create profile if it doesn't exist
+              const { error: createError } = await supabase
+                .from('users')
+                .insert({
+                  id: data.user.id,
+                  email: data.user.email!,
+                  first_name: data.user.user_metadata?.first_name,
+                  last_name: data.user.user_metadata?.last_name,
+                });
+              
+              if (createError) {
+                console.error('Profile creation error:', createError);
+              }
+            }
+
+            set({ 
+              user: {
+                id: data.user.id,
+                email: data.user.email!,
+                first_name: profile?.first_name || data.user.user_metadata?.first_name,
+                last_name: profile?.last_name || data.user.user_metadata?.last_name,
+              }
+            });
+          }
+
+          return data;
+        } catch (error) {
+          console.error('Login error:', error);
+          throw error;
+        }
       },
       signInWithProvider: async (provider: 'google' | 'facebook') => {
         const { data, error } = await supabase.auth.signInWithOAuth({
@@ -140,21 +169,28 @@ export const useAuth = create<AuthState>()(
 
 // Initialize auth state
 supabase.auth.onAuthStateChange(async (event, session) => {
+  console.log('Auth state change:', event, session?.user?.id);
+  
   if (session?.user && event === 'SIGNED_IN') {
-    const { data: profile } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
+    try {
+      const { data: profile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
 
-    useAuth.getState().setUser({
-      id: session.user.id,
-      email: session.user.email!,
-      first_name: profile?.first_name,
-      last_name: profile?.last_name,
-    });
+      useAuth.getState().setUser({
+        id: session.user.id,
+        email: session.user.email!,
+        first_name: profile?.first_name || session.user.user_metadata?.first_name,
+        last_name: profile?.last_name || session.user.user_metadata?.last_name,
+      });
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
   } else if (event === 'SIGNED_OUT') {
     useAuth.getState().setUser(null);
   }
+  
   useAuth.setState({ loading: false });
 });

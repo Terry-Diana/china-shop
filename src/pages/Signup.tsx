@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 
 const Signup = () => {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, user } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -23,7 +23,12 @@ const Signup = () => {
 
   useEffect(() => {
     document.title = 'Sign Up | China Square';
-  }, []);
+    
+    // Redirect if already logged in
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -32,6 +37,16 @@ const Signup = () => {
   };
 
   const validateForm = () => {
+    if (!formData.firstName.trim()) {
+      setError('First name is required');
+      return false;
+    }
+
+    if (!formData.lastName.trim()) {
+      setError('Last name is required');
+      return false;
+    }
+
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(formData.email)) {
       setError('Please enter a valid email address');
@@ -69,6 +84,7 @@ const Signup = () => {
       
       setSignupSuccess(true);
     } catch (err: any) {
+      console.error('Signup error:', err);
       setError(err.message || 'Failed to create account');
     } finally {
       setIsLoading(false);

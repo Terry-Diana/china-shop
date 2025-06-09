@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -17,7 +17,13 @@ const Login = () => {
 
   useEffect(() => {
     document.title = 'Login | China Square';
-  }, []);
+    
+    // Redirect if already logged in
+    if (user) {
+      const from = location.state?.from || '/';
+      navigate(from, { replace: true });
+    }
+  }, [user, navigate, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
