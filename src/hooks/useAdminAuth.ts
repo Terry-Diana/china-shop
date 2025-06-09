@@ -26,9 +26,13 @@ export const useAdminAuth = create<AdminAuthState>()(
           const result = await adminService.adminLogin(email, password);
           if (result.admin) {
             set({ admin: result.admin });
+          } else {
+            throw new Error('Login failed - no admin data returned');
           }
         } catch (error) {
           console.error('Admin login error:', error);
+          // Clear any existing admin state on login failure
+          set({ admin: null });
           throw error;
         }
       },
@@ -40,6 +44,9 @@ export const useAdminAuth = create<AdminAuthState>()(
           localStorage.removeItem('admin-auth-storage');
         } catch (error) {
           console.error('Admin logout error:', error);
+          // Even if logout fails, clear local state
+          set({ admin: null });
+          localStorage.removeItem('admin-auth-storage');
           throw error;
         }
       },
@@ -66,23 +73,36 @@ export const useAdminAuth = create<AdminAuthState>()(
 
 // Initialize admin auth state
 supabase.auth.onAuthStateChange(async (event, session) => {
-  if (session?.user && event === 'SIGNED_IN') {
+  console.log('Auth state change:', event, session?.user?.id);
+  
+  if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
     try {
-      const { data: adminData } = await supabase
+      const { data: adminData, error } = await supabase
         .from('admins')
         .select('*')
         .eq('id', session.user.id)
         .single();
 
-      if (adminData) {
+      if (error) {
+        console.error('Error checking admin status:', error);
+        // If admin lookup fails, clear admin state but don't throw
+        useAdminAuth.getState().setAdmin(null);
+      } else if (adminData) {
+        console.log('Admin data found:', adminData);
         useAdminAuth.getState().setAdmin(adminData);
+      } else {
+        console.log('No admin data found for user');
+        useAdminAuth.getState().setAdmin(null);
       }
     } catch (error) {
       console.error('Error checking admin status:', error);
+      useAdminAuth.getState().setAdmin(null);
     }
   } else if (event === 'SIGNED_OUT') {
+    console.log('User signed out, clearing admin state');
     useAdminAuth.getState().setAdmin(null);
   }
   
+  // Always set loading to false after processing auth state change
   useAdminAuth.setState({ loading: false });
 });

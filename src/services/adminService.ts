@@ -10,17 +10,26 @@ export const adminService = {
         password,
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase auth error:', error);
+        throw error;
+      }
       
       // Check if user is admin
       if (data.user) {
         const { data: adminData, error: adminError } = await supabase
           .from('admins')
           .select('*')
-          .eq('email', email)
+          .eq('id', data.user.id) // Use user ID instead of email for better reliability
           .single();
           
-        if (adminError || !adminData) {
+        if (adminError) {
+          console.error('Admin lookup error:', adminError);
+          await supabase.auth.signOut();
+          throw new Error('Access denied. Admin privileges required.');
+        }
+        
+        if (!adminData) {
           await supabase.auth.signOut();
           throw new Error('Access denied. Admin privileges required.');
         }
@@ -28,7 +37,7 @@ export const adminService = {
         return { user: data.user, admin: adminData };
       }
       
-      return data;
+      throw new Error('Authentication failed');
     } catch (error) {
       console.error('Admin login error:', error);
       throw error;
@@ -37,16 +46,20 @@ export const adminService = {
 
   async registerAdmin(email: string, password: string, name: string, role: 'admin' | 'super_admin') {
     try {
-      // First create the auth user
+      // First create the auth user with email confirmation disabled
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { name, role },
+          emailRedirectTo: undefined, // Disable email confirmation
         },
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.error('Auth signup error:', authError);
+        throw authError;
+      }
 
       // Then create admin record
       if (authData.user) {
@@ -61,9 +74,20 @@ export const adminService = {
           .select()
           .single();
 
-        if (adminError) throw adminError;
+        if (adminError) {
+          console.error('Admin record creation error:', adminError);
+          // Clean up auth user if admin record creation fails
+          try {
+            await supabase.auth.admin.deleteUser(authData.user.id);
+          } catch (cleanupError) {
+            console.error('Failed to cleanup auth user:', cleanupError);
+          }
+          throw adminError;
+        }
         return adminData;
       }
+      
+      throw new Error('User creation failed');
     } catch (error) {
       console.error('Admin registration error:', error);
       throw error;

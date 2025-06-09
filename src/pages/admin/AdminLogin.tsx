@@ -36,12 +36,15 @@ const AdminLogin = () => {
         
         if (error) {
           console.error('Error checking admins:', error);
+          // If table doesn't exist or other error, assume no admins
+          setHasAdmins(false);
           return;
         }
         
         setHasAdmins(data && data.length > 0);
       } catch (error) {
         console.error('Error checking admins:', error);
+        setHasAdmins(false);
       }
     };
     
@@ -57,7 +60,14 @@ const AdminLogin = () => {
       await login(email, password);
       navigate('/admin');
     } catch (err: any) {
-      setError(err.message || 'Invalid credentials. Please try again.');
+      console.error('Login error:', err);
+      if (err.message?.includes('Invalid login credentials')) {
+        setError('Invalid email or password. Please check your credentials and try again.');
+      } else if (err.message?.includes('Admin privileges required')) {
+        setError('Access denied. This account does not have admin privileges.');
+      } else {
+        setError(err.message || 'Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -69,16 +79,20 @@ const AdminLogin = () => {
     setError('');
     
     try {
-      // Create auth user
+      // Create auth user with email confirmation disabled
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: regEmail,
         password: regPassword,
         options: {
           data: { name: regName },
+          emailRedirectTo: undefined, // Disable email confirmation
         },
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw authError;
+      }
 
       // Create admin record
       if (authData.user) {
@@ -91,14 +105,38 @@ const AdminLogin = () => {
             role: 'super_admin', // First admin is super admin
           });
 
-        if (adminError) throw adminError;
+        if (adminError) {
+          console.error('Admin creation error:', adminError);
+          throw adminError;
+        }
         
-        // Now try to login
-        await login(regEmail, regPassword);
-        navigate('/admin');
+        // Update hasAdmins state
+        setHasAdmins(true);
+        
+        // Now try to login with the new credentials
+        try {
+          await login(regEmail, regPassword);
+          navigate('/admin');
+        } catch (loginError) {
+          console.error('Auto-login after registration failed:', loginError);
+          // Registration succeeded but auto-login failed
+          setError('Account created successfully! Please log in with your credentials.');
+          setShowRegistration(false);
+          setRegName('');
+          setRegEmail('');
+          setRegPassword('');
+          setEmail(regEmail); // Pre-fill login email
+        }
       }
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
+      console.error('Registration error:', err);
+      if (err.message?.includes('User already registered')) {
+        setError('An account with this email already exists. Please try logging in instead.');
+      } else if (err.message?.includes('Password should be at least 6 characters')) {
+        setError('Password must be at least 6 characters long.');
+      } else {
+        setError(err.message || 'Registration failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -252,7 +290,13 @@ const AdminLogin = () => {
               <div className="text-center">
                 <button
                   type="button"
-                  onClick={() => setShowRegistration(false)}
+                  onClick={() => {
+                    setShowRegistration(false);
+                    setError('');
+                    setRegName('');
+                    setRegEmail('');
+                    setRegPassword('');
+                  }}
                   className="text-sm text-gray-600 hover:text-gray-900"
                   disabled={isLoading}
                 >
