@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../hooks/useAuth';
@@ -9,7 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 const Cart = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { items, removeFromCart, total, itemCount } = useCart();
+  const { items, removeFromCart, updateQuantity, total, itemCount } = useCart();
   
   useEffect(() => {
     document.title = 'Your Cart | China Square';
@@ -35,6 +35,14 @@ const Cart = () => {
       await removeFromCart(productId);
     } catch (error) {
       console.error('Error removing item:', error);
+    }
+  };
+
+  const handleUpdateQuantity = async (productId: number, newQuantity: number) => {
+    try {
+      await updateQuantity(productId, newQuantity);
+    } catch (error) {
+      console.error('Error updating quantity:', error);
     }
   };
 
@@ -91,10 +99,30 @@ const Cart = () => {
                         </div>
                         
                         <div className="flex items-center justify-between">
-                          {/* Quantity Display (Read-only) */}
-                          <div className="flex items-center">
-                            <span className="text-sm text-gray-600">Quantity: </span>
-                            <span className="ml-2 font-medium text-gray-900">{item.quantity}</span>
+                          {/* Quantity Controls */}
+                          <div className="flex items-center border border-gray-300 rounded-md">
+                            <button
+                              onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
+                              className="px-2 py-1 text-gray-600 hover:bg-gray-100 transition-colors"
+                              disabled={item.quantity <= 1}
+                            >
+                              <Minus size={16} />
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              max="10"
+                              value={item.quantity}
+                              onChange={(e) => handleUpdateQuantity(item.product.id, parseInt(e.target.value) || 1)}
+                              className="w-10 text-center border-none focus:ring-0"
+                            />
+                            <button
+                              onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
+                              className="px-2 py-1 text-gray-600 hover:bg-gray-100 transition-colors"
+                              disabled={item.quantity >= 10}
+                            >
+                              <Plus size={16} />
+                            </button>
                           </div>
                           
                           {/* Remove Button */}
