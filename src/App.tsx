@@ -6,6 +6,7 @@ import LoadingSpinner from './components/ui/LoadingSpinner';
 import ComparisonBar from './components/ui/ComparisonBar';
 import { CartProvider } from './contexts/CartContext';
 import { ProductProvider } from './contexts/ProductContext';
+import { useAdminAuth } from './hooks/useAdminAuth';
 
 // Lazy-loaded components
 const Home = lazy(() => import('./pages/Home'));
@@ -26,13 +27,21 @@ const AdminProducts = lazy(() => import('./pages/admin/AdminProducts'));
 const AdminInventory = lazy(() => import('./pages/admin/AdminInventory'));
 const AdminCMS = lazy(() => import('./pages/admin/AdminCMS'));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
+const AdminOrders = lazy(() => import('./pages/admin/AdminOrders'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 
-// Auth guard component
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-  const authToken = localStorage.getItem('authToken');
-  if (!authToken) {
+// Admin auth guard component
+const AdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
+  const { admin, loading } = useAdminAuth();
+  
+  if (loading) {
+    return <LoadingSpinner fullScreen />;
+  }
+  
+  if (!admin) {
     return <Navigate to="/admin/login" replace />;
   }
+  
   return children;
 };
 
@@ -60,14 +69,24 @@ function App() {
             <Routes>
               {/* Admin Routes */}
               <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin" element={<AdminLayout />}>
+              <Route 
+                path="/admin" 
+                element={
+                  <AdminProtectedRoute>
+                    <AdminLayout />
+                  </AdminProtectedRoute>
+                }
+              >
                 <Route index element={<AdminDashboard />} />
                 <Route path="products" element={<AdminProducts />} />
                 <Route path="inventory" element={<AdminInventory />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="users" element={<AdminUsers />} />
                 <Route path="cms" element={<AdminCMS />} />
                 <Route path="analytics" element={<AdminAnalytics />} />
               </Route>
               
+              {/* Public Routes */}
               <Route path="/" element={<Home />} />
               <Route path="/products" element={<ProductList />} />
               <Route path="/products/:category" element={<ProductList />} />
@@ -78,23 +97,6 @@ function App() {
               <Route path="/signup" element={<Signup />} />
               <Route path="/store-locator" element={<StoreLocator />} />
               <Route path="/wishlist" element={<Wishlist />} />
-              
-              {/* Admin Protected Routes */}
-              <Route 
-                path="/admin" 
-                element={
-                  <ProtectedRoute>
-                    <AdminLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<AdminDashboard />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="inventory" element={<AdminInventory />} />
-                <Route path="cms" element={<AdminCMS />} />
-                <Route path="analytics" element={<AdminAnalytics />} />
-              
-              </Route>
 
               <Route path="*" element={<NotFound />} />
             </Routes>

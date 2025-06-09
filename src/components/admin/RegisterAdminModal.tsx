@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X } from 'lucide-react';
-import { adminService } from '../../services/adminService';
+import { X, UserPlus, Shield, User } from 'lucide-react';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
 import Button from '../ui/Button';
 
 interface RegisterAdminModalProps {
@@ -18,6 +18,7 @@ const RegisterAdminModal = ({ onClose, onSuccess }: RegisterAdminModalProps) => 
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { registerAdmin } = useAdminAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,19 +26,23 @@ const RegisterAdminModal = ({ onClose, onSuccess }: RegisterAdminModalProps) => 
     setError('');
 
     try {
-      await adminService.registerAdmin(
+      await registerAdmin(
         formData.email,
         formData.password,
         formData.name,
         formData.role
       );
       onSuccess();
-      onClose();
-    } catch (err) {
-      setError('Failed to register admin. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to register admin. Please try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   return (
@@ -48,7 +53,10 @@ const RegisterAdminModal = ({ onClose, onSuccess }: RegisterAdminModalProps) => 
         className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
       >
         <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-semibold">Register New Admin</h2>
+          <div className="flex items-center">
+            <UserPlus size={24} className="text-primary mr-3" />
+            <h2 className="text-xl font-semibold">Register New Admin</h2>
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
             <X size={24} />
           </button>
@@ -56,7 +64,7 @@ const RegisterAdminModal = ({ onClose, onSuccess }: RegisterAdminModalProps) => 
 
         <form onSubmit={handleSubmit} className="p-6">
           {error && (
-            <div className="mb-4 p-3 bg-error-50 text-error rounded-md text-sm">
+            <div className="mb-4 p-3 bg-error-50 text-error rounded-md text-sm border border-error-200">
               {error}
             </div>
           )}
@@ -64,27 +72,34 @@ const RegisterAdminModal = ({ onClose, onSuccess }: RegisterAdminModalProps) => 
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Name
+                <User size={16} className="inline mr-2" />
+                Full Name
               </label>
               <input
                 type="text"
+                name="name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 required
+                disabled={isLoading}
+                placeholder="Enter full name"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+                Email Address
               </label>
               <input
                 type="email"
+                name="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 required
+                disabled={isLoading}
+                placeholder="admin@chinasquare.com"
               />
             </div>
 
@@ -94,25 +109,37 @@ const RegisterAdminModal = ({ onClose, onSuccess }: RegisterAdminModalProps) => 
               </label>
               <input
                 type="password"
+                name="password"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 required
+                disabled={isLoading}
+                minLength={6}
+                placeholder="Minimum 6 characters"
               />
+              <p className="text-xs text-gray-500 mt-1">Password must be at least 6 characters long</p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Shield size={16} className="inline mr-2" />
                 Role
               </label>
               <select
+                name="role"
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'super_admin' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={isLoading}
               >
                 <option value="admin">Admin</option>
                 <option value="super_admin">Super Admin</option>
               </select>
+              <div className="mt-2 text-xs text-gray-600">
+                <div className="mb-1"><strong>Admin:</strong> Can manage products, orders, and content</div>
+                <div><strong>Super Admin:</strong> Full access including user management and admin registration</div>
+              </div>
             </div>
           </div>
 
@@ -128,8 +155,9 @@ const RegisterAdminModal = ({ onClose, onSuccess }: RegisterAdminModalProps) => 
               variant="primary"
               type="submit"
               disabled={isLoading}
+              icon={<UserPlus size={18} />}
             >
-              {isLoading ? 'Registering...' : 'Register Admin'}
+              {isLoading ? 'Creating Admin...' : 'Create Admin'}
             </Button>
           </div>
         </form>

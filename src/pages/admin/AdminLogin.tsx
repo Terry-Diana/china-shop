@@ -1,9 +1,10 @@
-// pages/admin/AdminLogin.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react';
 import Logo from '../../components/ui/Logo';
+import Button from '../../components/ui/Button';
+import { useAdminAuth } from '../../hooks/useAdminAuth';
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAdminAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,40 +21,44 @@ const AdminLogin = () => {
     setError('');
     
     try {
-      const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
-      const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD;
-
-      if (email === adminEmail && password === adminPassword) {
-        navigate('/admin');
-      } else {
-        setError('Invalid credentials. Please try again.');
-      }
-    } catch (err) {
-      setError('An error occurred during login. Please try again.');
+      await login(email, password);
+      navigate('/admin');
+    } catch (err: any) {
+      setError(err.message || 'Invalid credentials. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary to-primary-light flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <Logo className="h-12 w-auto" />
+        <div className="flex justify-center mb-6">
+          <div className="bg-white p-4 rounded-full shadow-lg">
+            <Logo className="h-12 w-auto" />
+          </div>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Admin Login
-        </h2>
+        <div className="text-center">
+          <div className="flex justify-center mb-4">
+            <Shield size={48} className="text-accent" />
+          </div>
+          <h2 className="text-3xl font-bold text-white">
+            Admin Portal
+          </h2>
+          <p className="mt-2 text-primary-100">
+            Secure access for authorized personnel only
+          </p>
+        </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10"
+          className="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10"
         >
           {error && (
-            <div className="mb-4 p-3 bg-error-50 text-error rounded-md text-sm">
+            <div className="mb-4 p-3 bg-error-50 text-error rounded-md text-sm border border-error-200">
               {error}
             </div>
           )}
@@ -74,7 +80,7 @@ const AdminLogin = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary sm:text-sm"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="admin@chinasquare.com"
                   disabled={isLoading}
                 />
@@ -97,7 +103,7 @@ const AdminLogin = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary sm:text-sm"
+                  className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
                   disabled={isLoading}
                 />
                 <button
@@ -116,14 +122,34 @@ const AdminLogin = () => {
             </div>
 
             <div>
-              <button
+              <Button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-m shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                variant="primary"
+                size="lg"
+                fullWidth
+                disabled={isLoading}
+                icon={<Shield size={18} />}
               >
-                {isLoading ? 'Signing in...' : 'Sign in'}
-              </button>
+                {isLoading ? 'Signing in...' : 'Access Admin Portal'}
+              </Button>
             </div>
           </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Security Notice</span>
+              </div>
+            </div>
+            <div className="mt-3 text-center">
+              <p className="text-xs text-gray-500">
+                This is a secure area. All access attempts are logged and monitored.
+              </p>
+            </div>
+          </div>
         </motion.div>
       </div>
     </div>
