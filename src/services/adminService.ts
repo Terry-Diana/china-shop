@@ -26,12 +26,12 @@ export const adminService = {
         if (adminError) {
           console.error('Admin lookup error:', adminError);
           await supabase.auth.signOut();
-          throw new Error('Access denied. Admin privileges required.');
+          throw new Error('Access denied. This account does not have admin privileges.');
         }
         
         if (!adminData) {
           await supabase.auth.signOut();
-          throw new Error('Access denied. Admin privileges required.');
+          throw new Error('Access denied. This account does not have admin privileges.');
         }
         
         return { user: data.user, admin: adminData };
