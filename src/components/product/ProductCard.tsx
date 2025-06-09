@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Star } from 'lucide-react';
 import { Product } from '../../types/product';
 import { useAuth } from '../../hooks/useAuth';
-import { useCart } from '../../hooks/useCart';
+import { useCart } from '../../contexts/CartContext';
 import { useFavorites } from '../../hooks/useFavorites';
 
 interface ProductCardProps {
@@ -13,11 +13,11 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addToCart } = useCart();
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleFavoriteClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -54,7 +54,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
     try {
       setIsLoading(true);
       await addToCart(product.id, 1);
-      // You could add a toast notification here
     } catch (error) {
       console.error('Error adding to cart:', error);
     } finally {
@@ -144,11 +143,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
         >
           <button
             onClick={handleAddToCart}
-            disabled={isLoading}
-            className="w-full py-2 px-4 bg-primary hover:bg-primary-dark text-white rounded flex items-center justify-center text-sm font-medium transition-colors disabled:opacity-75"
+            disabled={isLoading || product.stock === 0}
+            className="w-full py-2 px-4 bg-primary hover:bg-primary-dark text-white rounded flex items-center justify-center text-sm font-medium transition-colors disabled:opacity-75 disabled:cursor-not-allowed"
           >
             <ShoppingCart size={16} className="mr-2" />
-            {isLoading ? 'Adding...' : 'Add to Cart'}
+            {isLoading ? 'Adding...' : product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
           </button>
         </motion.div>
       </Link>

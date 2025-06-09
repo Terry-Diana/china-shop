@@ -9,10 +9,19 @@ interface User {
   last_name?: string;
 }
 
+interface Admin {
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'super_admin';
+}
+
 interface AuthState {
   user: User | null;
+  admin: Admin | null;
   loading: boolean;
   setUser: (user: User | null) => void;
+  setAdmin: (admin: Admin | null) => void;
   signUp: (email: string, password: string, userData?: Partial<User>) => Promise<any>;
   signIn: (email: string, password: string) => Promise<any>;
   signInWithProvider: (provider: 'google' | 'facebook') => Promise<any>;
@@ -21,10 +30,12 @@ interface AuthState {
 
 export const useAuth = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
+      admin: null,
       loading: true,
       setUser: (user) => set({ user }),
+      setAdmin: (admin) => set({ admin }),
       signUp: async (email: string, password: string, userData?: Partial<User>) => {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -44,10 +55,21 @@ export const useAuth = create<AuthState>()(
             .insert({
               id: data.user.id,
               email: data.user.email,
-              ...userData,
+              first_name: userData?.first_name,
+              last_name: userData?.last_name,
             });
 
           if (profileError) throw profileError;
+
+          // Set the user in state
+          set({ 
+            user: {
+              id: data.user.id,
+              email: data.user.email!,
+              first_name: userData?.first_name,
+              last_name: userData?.last_name,
+            }
+          });
         }
 
         return data;
@@ -58,7 +80,13 @@ export const useAuth = create<AuthState>()(
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          // Check if it's a user not found error
+          if (error.message.includes('Invalid login credentials')) {
+            throw new Error('User not found, Sign Up');
+          }
+          throw error;
+        }
 
         if (data.user) {
           const { data: profile } = await supabase
@@ -71,7 +99,8 @@ export const useAuth = create<AuthState>()(
             user: {
               id: data.user.id,
               email: data.user.email!,
-              ...profile,
+              first_name: profile?.first_name,
+              last_name: profile?.last_name,
             }
           });
         }
@@ -92,7 +121,7 @@ export const useAuth = create<AuthState>()(
       logout: async () => {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
-        set({ user: null });
+        set({ user: null, admin: null });
       },
     }),
     {
@@ -113,7 +142,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     useAuth.getState().setUser({
       id: session.user.id,
       email: session.user.email!,
-      ...profile,
+      first_name: profile?.first_name,
+      last_name: profile?.last_name,
     });
   } else {
     useAuth.getState().setUser(null);

@@ -2,9 +2,11 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart, User, Heart, LogOut } from 'lucide-react';
 import Button from '../../ui/Button';
 import { useAuth } from '../../../hooks/useAuth';
+import { useCart } from '../../../hooks/useCart';
 
 const ActionButtons = () => {
   const { user, logout } = useAuth();
+  const { itemCount } = useCart();
 
   const handleLogout = async () => {
     try {
@@ -23,20 +25,25 @@ const ActionButtons = () => {
       >
         <Heart size={24} />
       </Link>
-      <Link
-        to="/cart"
-        className="p-2 text-white hover:text-accent-200 relative"
-        aria-label="Cart"
-      >
-        <ShoppingCart size={24} />
-        <span className="absolute -top-1 -right-1 bg-accent text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-          3
-        </span>
-      </Link>
+      
+      {user && (
+        <Link
+          to="/cart"
+          className="p-2 text-white hover:text-accent-200 relative"
+          aria-label="Cart"
+        >
+          <ShoppingCart size={24} />
+          {itemCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-accent text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+              {itemCount}
+            </span>
+          )}
+        </Link>
+      )}
       
       {user ? (
         <div className="hidden md:flex items-center space-x-4">
-          <span className="text-white">{user.first_name}</span>
+          <span className="text-white">Hi, {user.first_name || 'User'}</span>
           <button 
             onClick={handleLogout}
             className="text-white hover:text-accent-200 flex items-center space-x-1"

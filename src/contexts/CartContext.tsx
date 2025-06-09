@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
 interface CartItem {
-  id: number;
+  id: string;
   product_id: number;
   quantity: number;
   product: {
@@ -11,6 +11,7 @@ interface CartItem {
     name: string;
     price: number;
     image_url: string;
+    stock: number;
   };
 }
 
@@ -57,24 +58,30 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  useEffect(() => {
-    fetchCart();
-  }, [user]);
-
   const addToCart = async (productId: number, quantity: number) => {
     if (!user) throw new Error('Must be logged in');
 
     try {
-      const { error } = await supabase
-        .from('cart_items')
-        .upsert({
-          user_id: user.id,
-          product_id: productId,
-          quantity,
-        });
+      // Check if item already exists in cart
+      const existingItem = items.find(item => item.product_id === productId);
+      
+      if (existingItem) {
+        // Update quantity
+        const newQuantity = existingItem.quantity + quantity;
+        await updateQuantity(productId, newQuantity);
+      } else {
+        // Add new item
+        const { error } = await supabase
+          .from('cart_items')
+          .insert({
+            user_id: user.id,
+            product_id: productId,
+            quantity,
+          });
 
-      if (error) throw error;
-      await fetchCart();
+        if (error) throw error;
+        await fetchCart();
+      }
     } catch (error) {
       throw error;
     }
@@ -101,6 +108,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     if (!user) throw new Error('Must be logged in');
 
     try {
+      if (quantity <= 0) {
+        await removeFromCart(productId);
+        return;
+      }
+
       const { error } = await supabase
         .from('cart_items')
         .update({ quantity })
@@ -129,6 +141,35 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
   };
+
+  useEffect(() => {
+    fetchCart();
+  }, [user]);
+
+  // Subscribe to real-time changes
+  useEffect(() => {
+    if (!user) return;
+
+    const subscription = supabase
+      .channel('cart_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cart_items',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchCart();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user]);
 
   const total = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);

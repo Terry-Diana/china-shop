@@ -62,7 +62,6 @@ function App() {
               <Route path="/signup" element={<Signup />} />
               <Route path="/store-locator" element={<StoreLocator />} />
               <Route path="/wishlist" element={<Wishlist />} />
-              <Route path="/admin/login" element={<AdminLogin />} />
               
               {/* Admin Protected Routes */}
               <Route 
