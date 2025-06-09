@@ -7,7 +7,6 @@ interface AdminAuthState {
   admin: Admin | null;
   loading: boolean;
   setAdmin: (admin: Admin | null) => void;
-  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   registerAdmin: (email: string, password: string, name: string, role: 'admin' | 'super_admin') => Promise<void>;
 }
@@ -18,69 +17,9 @@ export const useAdminAuth = create<AdminAuthState>()(
       admin: null,
       loading: false,
 
-      setAdmin: (admin) => set({ admin }),
-
-      login: async (email: string, password: string) => {
-        try {
-          console.log('🔐 useAdminAuth: Starting login process for:', email);
-          
-          // Check for default super admin credentials
-          if (email.trim() === 'superadmin@chinasquare.com' && password === 'adminsuper@123') {
-            console.log('✅ useAdminAuth: Default super admin credentials verified');
-            
-            const defaultAdmin: Admin = {
-              id: 'default-super-admin',
-              email: 'superadmin@chinasquare.com',
-              name: 'Super Admin',
-              role: 'super_admin',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
-            
-            set({ admin: defaultAdmin });
-            console.log('✅ useAdminAuth: Default admin set successfully');
-            return;
-          }
-          
-          // For database-stored admins, try Supabase authentication
-          console.log('🔍 useAdminAuth: Attempting database admin login');
-          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password: password,
-          });
-
-          if (authError) {
-            console.error('❌ useAdminAuth: Auth error:', authError);
-            throw new Error('Invalid email or password');
-          }
-
-          if (!authData.user) {
-            throw new Error('No user data returned from authentication');
-          }
-
-          console.log('✅ useAdminAuth: Auth successful, checking admin status');
-
-          // Check admin status
-          const { data: adminData, error: adminError } = await supabase
-            .from('admins')
-            .select('*')
-            .eq('id', authData.user.id)
-            .single();
-
-          if (adminError || !adminData) {
-            console.error('❌ useAdminAuth: Admin lookup error:', adminError);
-            await supabase.auth.signOut();
-            throw new Error('Access denied. This account does not have admin privileges.');
-          }
-
-          console.log('✅ useAdminAuth: Admin verification successful');
-          set({ admin: adminData });
-          
-        } catch (error) {
-          console.error('💥 useAdminAuth: Login error:', error);
-          set({ admin: null });
-          throw error;
-        }
+      setAdmin: (admin) => {
+        console.log('🔧 useAdminAuth: Setting admin:', admin);
+        set({ admin });
       },
 
       logout: async () => {
@@ -110,19 +49,21 @@ export const useAdminAuth = create<AdminAuthState>()(
         try {
           const currentAdmin = get().admin;
           
-          // Allow registration if:
-          // 1. Current user is the default super admin, OR
-          // 2. Current user is a database super admin, OR
-          // 3. No current admin (for initial setup)
-          const canRegister = !currentAdmin || 
-                             currentAdmin.id === 'default-super-admin' || 
-                             currentAdmin.role === 'super_admin';
-          
-          if (!canRegister) {
+          // Only allow registration if current user is super admin
+          if (!currentAdmin || currentAdmin.role !== 'super_admin') {
             throw new Error('Only super admins can register new admins');
           }
           
           console.log('👤 useAdminAuth: Registering new admin:', email);
+          
+          // Validate inputs
+          if (!email.trim() || !password || !name.trim()) {
+            throw new Error('All fields are required');
+          }
+          
+          if (password.length < 6) {
+            throw new Error('Password must be at least 6 characters long');
+          }
           
           // Create auth user using admin API (bypasses email confirmation)
           const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -187,12 +128,3 @@ export const useAdminAuth = create<AdminAuthState>()(
     }
   )
 );
-
-// Initialize admin auth state
-export const initializeAdminAuth = () => {
-  console.log('🚀 Initializing admin auth');
-  useAdminAuth.setState({ loading: false });
-};
-
-// Call initialization
-initializeAdminAuth();

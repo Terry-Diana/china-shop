@@ -131,6 +131,7 @@ const AdminLayout = () => {
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2 border-t">
+          {/* Only show Register Admin button for super admins */}
           {admin?.role === 'super_admin' && (
             <Button
               variant="outline"
@@ -216,8 +217,8 @@ const AdminLayout = () => {
         </main>
       </div>
 
-      {/* Register Admin Modal */}
-      {showRegisterModal && (
+      {/* Register Admin Modal - Only show for super admins */}
+      {showRegisterModal && admin?.role === 'super_admin' && (
         <RegisterAdminModal
           onClose={() => setShowRegisterModal(false)}
           onSuccess={handleRegisterSuccess}

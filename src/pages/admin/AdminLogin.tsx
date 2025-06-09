@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, Shield, AlertCircle, CheckCircle, UserPlus, Info } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Mail, Lock, Eye, EyeOff, Shield, AlertCircle, CheckCircle } from 'lucide-react';
 import Logo from '../../components/ui/Logo';
 import Button from '../../components/ui/Button';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
@@ -13,21 +13,8 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showRegistration, setShowRegistration] = useState(false);
-  
-  // Registration form state
-  const [regData, setRegData] = useState({
-    email: '',
-    password: '',
-    name: '',
-    role: 'admin' as 'admin' | 'super_admin'
-  });
-  const [regError, setRegError] = useState('');
-  const [regSuccess, setRegSuccess] = useState('');
-  const [regLoading, setRegLoading] = useState(false);
-  
   const navigate = useNavigate();
-  const { admin, registerAdmin } = useAdminAuth();
+  const { admin, setAdmin } = useAdminAuth();
 
   // Redirect if already logged in
   useEffect(() => {
@@ -47,17 +34,7 @@ const AdminLogin = () => {
     }
   }, [error, success]);
 
-  useEffect(() => {
-    if (regError || regSuccess) {
-      const timer = setTimeout(() => {
-        setRegError('');
-        setRegSuccess('');
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [regError, regSuccess]);
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (isLoading) return;
@@ -83,24 +60,21 @@ const AdminLogin = () => {
           updated_at: new Date().toISOString(),
         };
         
-        // Store admin data in localStorage for the auth hook
-        localStorage.setItem('admin-auth-storage', JSON.stringify({
-          state: { admin: defaultAdmin, loading: false },
-          version: 0
-        }));
+        // Set admin directly using the hook
+        setAdmin(defaultAdmin);
         
         setSuccess('Login successful! Redirecting to admin dashboard...');
         
-        // Small delay to show success message
+        // Small delay to show success message, then redirect
         setTimeout(() => {
-          window.location.href = '/admin';
+          navigate('/admin');
         }, 1500);
         
         return;
       }
       
       // For any other credentials, show error
-      throw new Error('Invalid credentials. Please use the default super admin credentials or register a new admin account.');
+      throw new Error('Invalid credentials. Please use the default super admin credentials: superadmin@chinasquare.com / adminsuper@123');
       
     } catch (err: any) {
       console.error('💥 Login error:', err);
@@ -110,63 +84,11 @@ const AdminLogin = () => {
     }
   };
 
-  const handleRegistration = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (regLoading) return;
-    
-    setRegLoading(true);
-    setRegError('');
-    setRegSuccess('');
-    
-    try {
-      // Validate form
-      if (!regData.email.trim() || !regData.password || !regData.name.trim()) {
-        throw new Error('All fields are required');
-      }
-      
-      if (regData.password.length < 6) {
-        throw new Error('Password must be at least 6 characters long');
-      }
-      
-      // Create admin account
-      await registerAdmin(regData.email, regData.password, regData.name, regData.role);
-      
-      setRegSuccess('Admin account created successfully! You can now login with these credentials.');
-      
-      // Reset form
-      setRegData({
-        email: '',
-        password: '',
-        name: '',
-        role: 'admin'
-      });
-      
-      // Switch back to login form after 3 seconds
-      setTimeout(() => {
-        setShowRegistration(false);
-        setEmail(regData.email);
-        setPassword('');
-      }, 3000);
-      
-    } catch (err: any) {
-      console.error('💥 Registration error:', err);
-      setRegError(err.message || 'Registration failed. Please try again.');
-    } finally {
-      setRegLoading(false);
-    }
-  };
-
   const resetToDefaults = () => {
     setEmail('superadmin@chinasquare.com');
     setPassword('adminsuper@123');
     setError('');
     setSuccess('');
-  };
-
-  const handleRegInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setRegData(prev => ({ ...prev, [name]: value }));
   };
 
   return (
@@ -185,7 +107,7 @@ const AdminLogin = () => {
             Admin Portal
           </h2>
           <p className="mt-2 text-primary-100">
-            Secure access for authorized personnel
+            Secure access for authorized personnel only
           </p>
         </div>
       </div>
@@ -196,288 +118,112 @@ const AdminLogin = () => {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10"
         >
-          {/* Toggle between Login and Registration */}
-          <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setShowRegistration(false)}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                !showRegistration 
-                  ? 'bg-white text-primary shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Login
-            </button>
-            <button
-              onClick={() => setShowRegistration(true)}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                showRegistration 
-                  ? 'bg-white text-primary shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Register Admin
-            </button>
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-error-50 text-error rounded-md text-sm border border-error-200 flex items-start">
+              <AlertCircle size={16} className="mr-2 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {success && (
+            <div className="mb-4 p-3 bg-success-50 text-success-dark rounded-md text-sm border border-success-200 flex items-start">
+              <CheckCircle size={16} className="mr-2 mt-0.5 flex-shrink-0" />
+              <span>{success}</span>
+            </div>
+          )}
+
+          {/* Default Credentials Info */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="text-sm text-blue-800">
+              <p className="font-medium mb-2">Default Super Admin Credentials:</p>
+              <div className="bg-blue-100 p-3 rounded text-xs font-mono mb-3">
+                <div className="mb-1"><strong>Email:</strong> superadmin@chinasquare.com</div>
+                <div><strong>Password:</strong> adminsuper@123</div>
+              </div>
+              <button
+                onClick={resetToDefaults}
+                className="text-xs text-blue-700 hover:text-blue-900 underline"
+                disabled={isLoading}
+              >
+                Use these credentials
+              </button>
+            </div>
           </div>
 
-          <AnimatePresence mode="wait">
-            {!showRegistration ? (
-              /* LOGIN FORM */
-              <motion.div
-                key="login"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
-              >
-                {/* Error Message */}
-                {error && (
-                  <div className="mb-4 p-3 bg-error-50 text-error rounded-md text-sm border border-error-200 flex items-start">
-                    <AlertCircle size={16} className="mr-2 mt-0.5 flex-shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
-
-                {/* Success Message */}
-                {success && (
-                  <div className="mb-4 p-3 bg-success-50 text-success-dark rounded-md text-sm border border-success-200 flex items-start">
-                    <CheckCircle size={16} className="mr-2 mt-0.5 flex-shrink-0" />
-                    <span>{success}</span>
-                  </div>
-                )}
-
-                {/* Default Credentials Info */}
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                  <div className="text-sm text-blue-800">
-                    <div className="flex items-center mb-2">
-                      <Info size={16} className="mr-2" />
-                      <p className="font-medium">Default Super Admin Credentials:</p>
-                    </div>
-                    <div className="bg-blue-100 p-3 rounded text-xs font-mono mb-3">
-                      <div className="mb-1"><strong>Email:</strong> superadmin@chinasquare.com</div>
-                      <div><strong>Password:</strong> adminsuper@123</div>
-                    </div>
-                    <button
-                      onClick={resetToDefaults}
-                      className="text-xs text-blue-700 hover:text-blue-900 underline"
-                      disabled={isLoading}
-                    >
-                      Use these credentials
-                    </button>
-                  </div>
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email address
+              </label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400" />
                 </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
+                  placeholder="superadmin@chinasquare.com"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
 
-                <form className="space-y-6" onSubmit={handleLogin}>
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                      Email address
-                    </label>
-                    <div className="mt-1 relative rounded-md shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        autoComplete="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
-                        placeholder="superadmin@chinasquare.com"
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                      Password
-                    </label>
-                    <div className="mt-1 relative rounded-md shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Lock className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        id="password"
-                        name="password"
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="current-password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
-                        disabled={isLoading}
-                        placeholder="Enter your password"
-                      />
-                      <button
-                        type="button"
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                        onClick={() => setShowPassword(!showPassword)}
-                        disabled={isLoading}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-5 w-5 text-gray-400" />
-                        ) : (
-                          <Eye className="h-5 w-5 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      size="lg"
-                      fullWidth
-                      disabled={isLoading}
-                      icon={isLoading ? undefined : <Shield size={18} />}
-                    >
-                      {isLoading ? 'Signing in...' : 'Access Admin Portal'}
-                    </Button>
-                  </div>
-                </form>
-              </motion.div>
-            ) : (
-              /* REGISTRATION FORM */
-              <motion.div
-                key="register"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                {/* Registration Error Message */}
-                {regError && (
-                  <div className="mb-4 p-3 bg-error-50 text-error rounded-md text-sm border border-error-200 flex items-start">
-                    <AlertCircle size={16} className="mr-2 mt-0.5 flex-shrink-0" />
-                    <span>{regError}</span>
-                  </div>
-                )}
-
-                {/* Registration Success Message */}
-                {regSuccess && (
-                  <div className="mb-4 p-3 bg-success-50 text-success-dark rounded-md text-sm border border-success-200 flex items-start">
-                    <CheckCircle size={16} className="mr-2 mt-0.5 flex-shrink-0" />
-                    <span>{regSuccess}</span>
-                  </div>
-                )}
-
-                {/* Registration Info */}
-                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
-                  <div className="text-sm text-amber-800">
-                    <div className="flex items-center mb-2">
-                      <UserPlus size={16} className="mr-2" />
-                      <p className="font-medium">Create New Admin Account</p>
-                    </div>
-                    <p className="text-xs">
-                      This will create a new admin account that can access the admin portal. 
-                      Super admins can create other admin accounts.
-                    </p>
-                  </div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
                 </div>
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
+                  disabled={isLoading}
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
+              </div>
+            </div>
 
-                <form className="space-y-6" onSubmit={handleRegistration}>
-                  <div>
-                    <label htmlFor="reg-name" className="block text-sm font-medium text-gray-700">
-                      Full Name
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        id="reg-name"
-                        name="name"
-                        type="text"
-                        required
-                        value={regData.name}
-                        onChange={handleRegInputChange}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
-                        placeholder="Enter full name"
-                        disabled={regLoading}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="reg-email" className="block text-sm font-medium text-gray-700">
-                      Email address
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        id="reg-email"
-                        name="email"
-                        type="email"
-                        required
-                        value={regData.email}
-                        onChange={handleRegInputChange}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
-                        placeholder="admin@chinasquare.com"
-                        disabled={regLoading}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="reg-password" className="block text-sm font-medium text-gray-700">
-                      Password
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        id="reg-password"
-                        name="password"
-                        type="password"
-                        required
-                        value={regData.password}
-                        onChange={handleRegInputChange}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
-                        placeholder="Minimum 6 characters"
-                        disabled={regLoading}
-                        minLength={6}
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">Password must be at least 6 characters long</p>
-                  </div>
-
-                  <div>
-                    <label htmlFor="reg-role" className="block text-sm font-medium text-gray-700">
-                      Role
-                    </label>
-                    <div className="mt-1">
-                      <select
-                        id="reg-role"
-                        name="role"
-                        value={regData.role}
-                        onChange={handleRegInputChange}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
-                        disabled={regLoading}
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="super_admin">Super Admin</option>
-                      </select>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-600">
-                      <div className="mb-1"><strong>Admin:</strong> Can manage products, orders, and content</div>
-                      <div><strong>Super Admin:</strong> Full access including user management and admin registration</div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      size="lg"
-                      fullWidth
-                      disabled={regLoading}
-                      icon={regLoading ? undefined : <UserPlus size={18} />}
-                    >
-                      {regLoading ? 'Creating Account...' : 'Create Admin Account'}
-                    </Button>
-                  </div>
-                </form>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <div>
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                fullWidth
+                disabled={isLoading}
+                icon={isLoading ? undefined : <Shield size={18} />}
+              >
+                {isLoading ? 'Signing in...' : 'Access Admin Portal'}
+              </Button>
+            </div>
+          </form>
 
           <div className="mt-6">
             <div className="relative">
@@ -493,7 +239,7 @@ const AdminLogin = () => {
                 This is a secure area. All access attempts are logged and monitored.
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Once logged in, you can manage additional admin users from the admin panel.
+                Once logged in, you can register additional admin users from the admin panel.
               </p>
             </div>
           </div>
