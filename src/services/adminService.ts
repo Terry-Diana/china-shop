@@ -2,9 +2,24 @@ import { supabase } from '../lib/supabase';
 import { Product, Banner, Admin } from '../types/admin';
 
 export const adminService = {
-  // Authentication
+  // Authentication - simplified for default credentials
   async adminLogin(email: string, password: string) {
     try {
+      // Check for default super admin credentials
+      if (email.trim() === 'superadmin@chinasquare.com' && password === 'adminsuper@123') {
+        const defaultAdmin: Admin = {
+          id: 'default-super-admin',
+          email: 'superadmin@chinasquare.com',
+          name: 'Super Admin',
+          role: 'super_admin',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        return { user: null, admin: defaultAdmin };
+      }
+      
+      // For database-stored admins
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -20,7 +35,7 @@ export const adminService = {
         const { data: adminData, error: adminError } = await supabase
           .from('admins')
           .select('*')
-          .eq('id', data.user.id) // Use user ID instead of email for better reliability
+          .eq('id', data.user.id)
           .single();
           
         if (adminError) {
@@ -46,48 +61,53 @@ export const adminService = {
 
   async registerAdmin(email: string, password: string, name: string, role: 'admin' | 'super_admin') {
     try {
-      // First create the auth user with email confirmation disabled
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name, role },
-          emailRedirectTo: undefined, // Disable email confirmation
-        },
+      // Create auth user with email confirmation disabled using admin API
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: email.trim(),
+        password: password,
+        email_confirm: true, // Auto-confirm email
+        user_metadata: { 
+          name: name.trim(),
+          role: role
+        }
       });
 
       if (authError) {
         console.error('Auth signup error:', authError);
-        throw authError;
+        if (authError.message.includes('User already registered')) {
+          throw new Error('An account with this email already exists.');
+        }
+        throw new Error(`Failed to create user account: ${authError.message}`);
       }
 
-      // Then create admin record
-      if (authData.user) {
-        const { data: adminData, error: adminError } = await supabase
-          .from('admins')
-          .insert({
-            id: authData.user.id,
-            email,
-            name,
-            role,
-          })
-          .select()
-          .single();
+      if (!authData.user) {
+        throw new Error('User creation failed');
+      }
 
-        if (adminError) {
-          console.error('Admin record creation error:', adminError);
-          // Clean up auth user if admin record creation fails
-          try {
-            await supabase.auth.admin.deleteUser(authData.user.id);
-          } catch (cleanupError) {
-            console.error('Failed to cleanup auth user:', cleanupError);
-          }
-          throw adminError;
+      // Create admin record
+      const { data: adminData, error: adminError } = await supabase
+        .from('admins')
+        .insert({
+          id: authData.user.id,
+          email: email.trim(),
+          name: name.trim(),
+          role: role,
+        })
+        .select()
+        .single();
+
+      if (adminError) {
+        console.error('Admin record creation error:', adminError);
+        // Clean up auth user if admin record creation fails
+        try {
+          await supabase.auth.admin.deleteUser(authData.user.id);
+        } catch (cleanupError) {
+          console.error('Failed to cleanup auth user:', cleanupError);
         }
-        return adminData;
+        throw new Error(`Failed to create admin record: ${adminError.message}`);
       }
       
-      throw new Error('User creation failed');
+      return adminData;
     } catch (error) {
       console.error('Admin registration error:', error);
       throw error;

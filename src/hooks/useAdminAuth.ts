@@ -16,7 +16,7 @@ export const useAdminAuth = create<AdminAuthState>()(
   persist(
     (set, get) => ({
       admin: null,
-      loading: true,
+      loading: false,
 
       setAdmin: (admin) => set({ admin }),
 
@@ -24,7 +24,24 @@ export const useAdminAuth = create<AdminAuthState>()(
         try {
           console.log('useAdminAuth: Starting login process');
           
-          // Step 1: Authenticate with Supabase
+          // Check for default super admin credentials
+          if (email.trim() === 'superadmin@chinasquare.com' && password === 'adminsuper@123') {
+            console.log('useAdminAuth: Default super admin credentials verified');
+            
+            const defaultAdmin: Admin = {
+              id: 'default-super-admin',
+              email: 'superadmin@chinasquare.com',
+              name: 'Super Admin',
+              role: 'super_admin',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            
+            set({ admin: defaultAdmin });
+            return;
+          }
+          
+          // For database-stored admins, try Supabase authentication
           const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
             email,
             password,
@@ -32,7 +49,7 @@ export const useAdminAuth = create<AdminAuthState>()(
 
           if (authError) {
             console.error('useAdminAuth: Auth error:', authError);
-            throw authError;
+            throw new Error('Invalid credentials');
           }
 
           if (!authData.user) {
@@ -41,22 +58,17 @@ export const useAdminAuth = create<AdminAuthState>()(
 
           console.log('useAdminAuth: Auth successful, checking admin status');
 
-          // Step 2: Check admin status
+          // Check admin status
           const { data: adminData, error: adminError } = await supabase
             .from('admins')
             .select('*')
             .eq('id', authData.user.id)
             .single();
 
-          if (adminError) {
+          if (adminError || !adminData) {
             console.error('useAdminAuth: Admin lookup error:', adminError);
             await supabase.auth.signOut();
             throw new Error('Access denied. This account does not have admin privileges.');
-          }
-
-          if (!adminData) {
-            await supabase.auth.signOut();
-            throw new Error('Access denied. Admin privileges required.');
           }
 
           console.log('useAdminAuth: Admin verification successful');
@@ -73,7 +85,13 @@ export const useAdminAuth = create<AdminAuthState>()(
         try {
           console.log('useAdminAuth: Logging out');
           set({ admin: null });
-          await supabase.auth.signOut();
+          
+          // Only sign out from Supabase if not using default credentials
+          const currentAdmin = get().admin;
+          if (currentAdmin && currentAdmin.id !== 'default-super-admin') {
+            await supabase.auth.signOut();
+          }
+          
           localStorage.removeItem('admin-auth-storage');
         } catch (error) {
           console.error('useAdminAuth: Logout error:', error);
@@ -93,19 +111,23 @@ export const useAdminAuth = create<AdminAuthState>()(
           
           console.log('useAdminAuth: Registering new admin');
           
-          // Create auth user
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: { name, role },
-              emailRedirectTo: undefined,
-            },
+          // Create auth user using admin API (bypasses email confirmation)
+          const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email: email.trim(),
+            password: password,
+            email_confirm: true,
+            user_metadata: { 
+              name: name.trim(),
+              role: role
+            }
           });
 
           if (authError) {
             console.error('useAdminAuth: Registration auth error:', authError);
-            throw authError;
+            if (authError.message.includes('User already registered')) {
+              throw new Error('An account with this email already exists.');
+            }
+            throw new Error(`Failed to create user account: ${authError.message}`);
           }
 
           if (!authData.user) {
@@ -117,14 +139,22 @@ export const useAdminAuth = create<AdminAuthState>()(
             .from('admins')
             .insert({
               id: authData.user.id,
-              email,
-              name,
-              role,
+              email: email.trim(),
+              name: name.trim(),
+              role: role,
             });
 
           if (adminError) {
             console.error('useAdminAuth: Admin record creation error:', adminError);
-            throw adminError;
+            
+            // Try to clean up the auth user
+            try {
+              await supabase.auth.admin.deleteUser(authData.user.id);
+            } catch (cleanupError) {
+              console.error('Failed to cleanup auth user:', cleanupError);
+            }
+            
+            throw new Error(`Failed to create admin record: ${adminError.message}`);
           }
 
           console.log('useAdminAuth: Admin registration successful');
@@ -141,37 +171,10 @@ export const useAdminAuth = create<AdminAuthState>()(
   )
 );
 
-// Initialize admin auth state
-supabase.auth.onAuthStateChange(async (event, session) => {
-  console.log('useAdminAuth: Auth state change:', event, session?.user?.id);
-  
-  if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-    try {
-      const { data: adminData, error } = await supabase
-        .from('admins')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      if (error) {
-        console.error('useAdminAuth: Error checking admin status:', error);
-        useAdminAuth.getState().setAdmin(null);
-      } else if (adminData) {
-        console.log('useAdminAuth: Admin data found:', adminData);
-        useAdminAuth.getState().setAdmin(adminData);
-      } else {
-        console.log('useAdminAuth: No admin data found for user');
-        useAdminAuth.getState().setAdmin(null);
-      }
-    } catch (error) {
-      console.error('useAdminAuth: Error checking admin status:', error);
-      useAdminAuth.getState().setAdmin(null);
-    }
-  } else if (event === 'SIGNED_OUT') {
-    console.log('useAdminAuth: User signed out, clearing admin state');
-    useAdminAuth.getState().setAdmin(null);
-  }
-  
-  // Always set loading to false after processing auth state change
+// Initialize admin auth state - simplified for default credentials
+export const initializeAdminAuth = () => {
   useAdminAuth.setState({ loading: false });
-});
+};
+
+// Call initialization
+initializeAdminAuth();
