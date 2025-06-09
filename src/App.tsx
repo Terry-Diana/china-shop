@@ -1,8 +1,9 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import AdminLayout from './components/admin/AdminLayout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
+import ComparisonBar from './components/ui/ComparisonBar';
 import { CartProvider } from './contexts/CartContext';
 import { ProductProvider } from './contexts/ProductContext';
 
@@ -36,6 +37,21 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 };
 
 function App() {
+  useEffect(() => {
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('SW registered: ', registration);
+          })
+          .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+          });
+      });
+    }
+  }, []);
+
   return (
     <ProductProvider>
       <CartProvider>
@@ -77,11 +93,15 @@ function App() {
                 <Route path="inventory" element={<AdminInventory />} />
                 <Route path="cms" element={<AdminCMS />} />
                 <Route path="analytics" element={<AdminAnalytics />} />
+              
               </Route>
 
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          
+          {/* Global Components */}
+          <ComparisonBar />
         </Layout>
       </CartProvider>
     </ProductProvider>
