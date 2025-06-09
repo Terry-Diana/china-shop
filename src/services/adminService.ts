@@ -2,11 +2,15 @@ import { supabase } from '../lib/supabase';
 import { Product, Banner, Admin } from '../types/admin';
 
 export const adminService = {
-  // Authentication - simplified for default credentials
+  // Authentication - enhanced with better error handling
   async adminLogin(email: string, password: string) {
     try {
+      console.log('🔐 adminService: Login attempt for:', email);
+      
       // Check for default super admin credentials
       if (email.trim() === 'superadmin@chinasquare.com' && password === 'adminsuper@123') {
+        console.log('✅ adminService: Default super admin credentials verified');
+        
         const defaultAdmin: Admin = {
           id: 'default-super-admin',
           email: 'superadmin@chinasquare.com',
@@ -20,47 +24,70 @@ export const adminService = {
       }
       
       // For database-stored admins
+      console.log('🔍 adminService: Attempting database admin authentication');
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: email.trim(),
+        password: password,
       });
       
       if (error) {
-        console.error('Supabase auth error:', error);
+        console.error('❌ adminService: Supabase auth error:', error);
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Invalid email or password');
+        }
         throw error;
       }
       
+      if (!data.user) {
+        throw new Error('Authentication failed - no user data');
+      }
+
+      console.log('✅ adminService: Auth successful, verifying admin status');
+      
       // Check if user is admin
-      if (data.user) {
-        const { data: adminData, error: adminError } = await supabase
-          .from('admins')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-          
-        if (adminError) {
-          console.error('Admin lookup error:', adminError);
-          await supabase.auth.signOut();
+      const { data: adminData, error: adminError } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+        
+      if (adminError) {
+        console.error('❌ adminService: Admin lookup error:', adminError);
+        await supabase.auth.signOut();
+        
+        if (adminError.code === 'PGRST116') {
           throw new Error('Access denied. This account does not have admin privileges.');
         }
-        
-        if (!adminData) {
-          await supabase.auth.signOut();
-          throw new Error('Access denied. This account does not have admin privileges.');
-        }
-        
-        return { user: data.user, admin: adminData };
+        throw new Error('Error verifying admin status. Please try again.');
       }
       
-      throw new Error('Authentication failed');
+      if (!adminData) {
+        await supabase.auth.signOut();
+        throw new Error('Access denied. This account does not have admin privileges.');
+      }
+      
+      console.log('✅ adminService: Admin verification successful');
+      return { user: data.user, admin: adminData };
+      
     } catch (error) {
-      console.error('Admin login error:', error);
+      console.error('💥 adminService: Login error:', error);
       throw error;
     }
   },
 
   async registerAdmin(email: string, password: string, name: string, role: 'admin' | 'super_admin') {
     try {
+      console.log('👤 adminService: Registering admin:', email, role);
+      
+      // Validate inputs
+      if (!email.trim() || !password || !name.trim()) {
+        throw new Error('All fields are required');
+      }
+      
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+      
       // Create auth user with email confirmation disabled using admin API
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: email.trim(),
@@ -73,16 +100,21 @@ export const adminService = {
       });
 
       if (authError) {
-        console.error('Auth signup error:', authError);
+        console.error('❌ adminService: Auth signup error:', authError);
         if (authError.message.includes('User already registered')) {
           throw new Error('An account with this email already exists.');
+        }
+        if (authError.message.includes('Password should be at least')) {
+          throw new Error('Password must be at least 6 characters long.');
         }
         throw new Error(`Failed to create user account: ${authError.message}`);
       }
 
       if (!authData.user) {
-        throw new Error('User creation failed');
+        throw new Error('User creation failed - no user data returned');
       }
+
+      console.log('✅ adminService: Auth user created, creating admin record');
 
       // Create admin record
       const { data: adminData, error: adminError } = await supabase
@@ -97,19 +129,27 @@ export const adminService = {
         .single();
 
       if (adminError) {
-        console.error('Admin record creation error:', adminError);
+        console.error('❌ adminService: Admin record creation error:', adminError);
+        
         // Clean up auth user if admin record creation fails
         try {
           await supabase.auth.admin.deleteUser(authData.user.id);
+          console.log('🧹 adminService: Cleaned up auth user after admin record failure');
         } catch (cleanupError) {
-          console.error('Failed to cleanup auth user:', cleanupError);
+          console.error('💥 adminService: Failed to cleanup auth user:', cleanupError);
+        }
+        
+        if (adminError.code === '23505') {
+          throw new Error('An admin with this email already exists.');
         }
         throw new Error(`Failed to create admin record: ${adminError.message}`);
       }
       
+      console.log('✅ adminService: Admin registration successful');
       return adminData;
+      
     } catch (error) {
-      console.error('Admin registration error:', error);
+      console.error('💥 adminService: Registration error:', error);
       throw error;
     }
   },
