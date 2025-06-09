@@ -26,7 +26,7 @@ const Checkout = () => {
   });
 
   useEffect(() => {
-    document.title = 'Checkout | ShopVista';
+    document.title = 'Checkout | China Square';
     window.scrollTo(0, 0);
   }, []);
 
@@ -40,8 +40,8 @@ const Checkout = () => {
   };
 
   const subtotal = calculateSubtotal();
-  const tax = subtotal * 0.08; // 8% tax
-  const shipping = subtotal > 100 ? 0 : 10;
+  const tax = subtotal * 0.16; // 16% VAT
+  const shipping = subtotal > 5000 ? 0 : 500; // Free shipping over Ksh 5000
   const total = subtotal + tax + shipping - (cart.discountAmount || 0);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -187,7 +187,7 @@ const Checkout = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      State
+                      County
                     </label>
                     <input
                       type="text"
@@ -200,7 +200,7 @@ const Checkout = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      ZIP Code
+                      Postal Code
                     </label>
                     <input
                       type="text"
@@ -335,7 +335,7 @@ const Checkout = () => {
                   <div className="bg-gray-50 p-4 rounded">
                     <p className="text-sm text-gray-600">
                       Standard Shipping (2-3 business days)<br />
-                      {shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}
+                      {shipping === 0 ? 'Free' : `Ksh ${shipping.toFixed(2)}`}
                     </p>
                   </div>
                 </div>
@@ -346,25 +346,25 @@ const Checkout = () => {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Subtotal</span>
-                      <span>${subtotal.toFixed(2)}</span>
+                      <span>Ksh {subtotal.toFixed(2)}</span>
                     </div>
                     {cart.discountAmount > 0 && (
                       <div className="flex justify-between">
                         <span className="text-gray-600">Discount</span>
-                        <span className="text-error">-${cart.discountAmount.toFixed(2)}</span>
+                        <span className="text-error">-Ksh {cart.discountAmount.toFixed(2)}</span>
                       </div>
                     )}
                     <div className="flex justify-between">
                       <span className="text-gray-600">Shipping</span>
-                      <span>{shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}</span>
+                      <span>{shipping === 0 ? 'Free' : `Ksh ${shipping.toFixed(2)}`}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Tax</span>
-                      <span>${tax.toFixed(2)}</span>
+                      <span className="text-gray-600">VAT (16%)</span>
+                      <span>Ksh {tax.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between font-medium text-base pt-2 border-t">
                       <span>Total</span>
-                      <span>${total.toFixed(2)}</span>
+                      <span>Ksh {total.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>

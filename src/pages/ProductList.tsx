@@ -15,7 +15,7 @@ const ProductList = () => {
   const [products, setProducts] = useState(mockProducts);
   const [filteredProducts, setFilteredProducts] = useState(mockProducts);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 50000]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState('popularity');
   
@@ -60,17 +60,17 @@ const ProductList = () => {
     setProducts(filtered);
     
     // Reset other filters
-    setPriceRange([0, 1000]);
+    setPriceRange([0, 50000]);
     setSelectedBrands([]);
     setSortOption('popularity');
     
     // Update document title
     if (category) {
-      document.title = `${category.charAt(0).toUpperCase() + category.slice(1)} | ShopVista`;
+      document.title = `${category.charAt(0).toUpperCase() + category.slice(1)} | China Square`;
     } else if (searchQuery) {
-      document.title = `Search: ${searchQuery} | ShopVista`;
+      document.title = `Search: ${searchQuery} | China Square`;
     } else {
-      document.title = 'All Products | ShopVista';
+      document.title = 'All Products | China Square';
     }
     
     // Scroll to top when params change
@@ -160,14 +160,14 @@ const ProductList = () => {
               <div className="mb-6">
                 <h3 className="font-medium text-gray-900 mb-3">Price Range</h3>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">${priceRange[0]}</span>
-                  <span className="text-sm text-gray-600">${priceRange[1]}</span>
+                  <span className="text-sm text-gray-600">Ksh {priceRange[0]}</span>
+                  <span className="text-sm text-gray-600">Ksh {priceRange[1]}</span>
                 </div>
                 <input
                   type="range"
                   min="0"
-                  max="1000"
-                  step="50"
+                  max="50000"
+                  step="1000"
                   value={priceRange[1]}
                   onChange={e => setPriceRange([priceRange[0], parseInt(e.target.value)])}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
@@ -196,7 +196,7 @@ const ProductList = () => {
               <div className="mt-6 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => {
-                    setPriceRange([0, 1000]);
+                    setPriceRange([0, 50000]);
                     setSelectedBrands([]);
                   }}
                   className="text-sm text-primary hover:text-primary-dark"
@@ -252,7 +252,7 @@ const ProductList = () => {
                 <Button 
                   variant="primary"
                   onClick={() => {
-                    setPriceRange([0, 1000]);
+                    setPriceRange([0, 50000]);
                     setSelectedBrands([]);
                   }}
                 >
@@ -283,14 +283,14 @@ const ProductList = () => {
               <div className="mb-6">
                 <h3 className="font-medium text-gray-900 mb-3">Price Range</h3>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">${priceRange[0]}</span>
-                  <span className="text-sm text-gray-600">${priceRange[1]}</span>
+                  <span className="text-sm text-gray-600">Ksh {priceRange[0]}</span>
+                  <span className="text-sm text-gray-600">Ksh {priceRange[1]}</span>
                 </div>
                 <input
                   type="range"
                   min="0"
-                  max="1000"
-                  step="50"
+                  max="50000"
+                  step="1000"
                   value={priceRange[1]}
                   onChange={e => setPriceRange([priceRange[0], parseInt(e.target.value)])}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
@@ -322,7 +322,7 @@ const ProductList = () => {
                 size="sm"
                 fullWidth
                 onClick={() => {
-                  setPriceRange([0, 1000]);
+                  setPriceRange([0, 50000]);
                   setSelectedBrands([]);
                 }}
               >

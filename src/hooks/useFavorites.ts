@@ -15,6 +15,7 @@ export const useFavorites = () => {
     }
 
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('favorites')
         .select(`
@@ -23,10 +24,15 @@ export const useFavorites = () => {
         `)
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Favorites fetch error:', error);
+        throw error;
+      }
+      
       setFavorites(data || []);
     } catch (error) {
       console.error('Error fetching favorites:', error);
+      setFavorites([]);
     } finally {
       setLoading(false);
     }
@@ -45,10 +51,15 @@ export const useFavorites = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Add to favorites error:', error);
+        throw error;
+      }
+      
       await fetchFavorites();
       return data;
     } catch (error) {
+      console.error('Error in addToFavorites:', error);
       throw error;
     }
   };
@@ -63,9 +74,14 @@ export const useFavorites = () => {
         .eq('user_id', user.id)
         .eq('product_id', productId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Remove from favorites error:', error);
+        throw error;
+      }
+      
       await fetchFavorites();
     } catch (error) {
+      console.error('Error in removeFromFavorites:', error);
       throw error;
     }
   };

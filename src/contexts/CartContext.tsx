@@ -41,6 +41,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('cart_items')
         .select(`
@@ -49,10 +50,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         `)
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Cart fetch error:', error);
+        throw error;
+      }
+      
       setItems(data || []);
     } catch (error) {
       console.error('Error fetching cart:', error);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -79,10 +85,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
             quantity,
           });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Add to cart error:', error);
+          throw error;
+        }
+        
         await fetchCart();
       }
     } catch (error) {
+      console.error('Error in addToCart:', error);
       throw error;
     }
   };
@@ -97,9 +108,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         .eq('user_id', user.id)
         .eq('product_id', productId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Remove from cart error:', error);
+        throw error;
+      }
+      
       await fetchCart();
     } catch (error) {
+      console.error('Error in removeFromCart:', error);
       throw error;
     }
   };
@@ -119,9 +135,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         .eq('user_id', user.id)
         .eq('product_id', productId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Update quantity error:', error);
+        throw error;
+      }
+      
       await fetchCart();
     } catch (error) {
+      console.error('Error in updateQuantity:', error);
       throw error;
     }
   };
@@ -135,9 +156,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         .delete()
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Clear cart error:', error);
+        throw error;
+      }
+      
       await fetchCart();
     } catch (error) {
+      console.error('Error in clearCart:', error);
       throw error;
     }
   };

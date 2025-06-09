@@ -93,7 +93,7 @@ const Home = () => {
             {[
               {
                 title: 'Free Shipping',
-                description: 'On all orders over $50',
+                description: 'On all orders over Ksh 5,000',
                 icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXRydWNrLWVsZWN0cmljLWljb24gbHVjaWRlLXRydWNrLWVsZWN0cmljIj48cGF0aCBkPSJNMTQgMTlWN2EyIDIgMCAwIDAtMi0ySDkiLz48cGF0aCBkPSJNMTUgMTlIOSIvPjxwYXRoIGQ9Ik0xOSAxOWgyYTEgMSAwIDAgMCAxLTF2LTMuNjVhMSAxIDAgMCAwLS4yMi0uNjJMMTguMyA5LjM4YTEgMSAwIDAgMC0uNzgtLjM4SDE0Ii8+PHBhdGggZD0iTTIgMTN2NWExIDEgMCAwIDAgMSAxaDIiLz48cGF0aCBkPSJNNCAzIDIuMTUgNS4xNWEuNDk1LjQ5NSAwIDAgMCAuMzUuODZoMi4xNWEuNDcuNDcgMCAwIDEgLjM1Ljg2TDMgOS4wMiIvPjxjaXJjbGUgY3g9IjE3IiBjeT0iMTkiIHI9IjIiLz48Y2lyY2xlIGN4PSI3IiBjeT0iMTkiIHI9IjIiLz48L3N2Zz4=',
               },
               {
