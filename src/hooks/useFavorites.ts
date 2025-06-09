@@ -4,13 +4,12 @@ import { useAuth } from './useAuth';
 
 export const useFavorites = () => {
   const [favorites, setFavorites] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
   const fetchFavorites = async () => {
     if (!user) {
       setFavorites([]);
-      setLoading(false);
       return;
     }
 

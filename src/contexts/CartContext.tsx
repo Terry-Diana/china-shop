@@ -30,13 +30,12 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
   const fetchCart = async () => {
     if (!user) {
       setItems([]);
-      setLoading(false);
       return;
     }
 
@@ -64,7 +63,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addToCart = async (productId: number, quantity: number) => {
+  const addToCart = async (productId: number, quantity: number = 1) => {
     if (!user) throw new Error('Must be logged in');
 
     try {
@@ -77,13 +76,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         await updateQuantity(productId, newQuantity);
       } else {
         // Add new item
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('cart_items')
           .insert({
             user_id: user.id,
             product_id: productId,
             quantity,
-          });
+          })
+          .select()
+          .single();
 
         if (error) {
           console.error('Add to cart error:', error);

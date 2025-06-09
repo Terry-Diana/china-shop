@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../hooks/useAuth';
@@ -9,17 +9,17 @@ import { useAuth } from '../hooks/useAuth';
 const Cart = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { items, loading, updateQuantity, removeFromCart } = useCart();
+  const { items, removeFromCart, total, itemCount } = useCart();
   
   useEffect(() => {
     document.title = 'Your Cart | China Square';
     window.scrollTo(0, 0);
 
     // Redirect to login if not authenticated
-    if (!user && !loading) {
+    if (!user) {
       navigate('/login', { state: { from: '/cart' } });
     }
-  }, [user, loading, navigate]);
+  }, [user, navigate]);
 
   const calculateSubtotal = () => {
     return items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -30,13 +30,13 @@ const Cart = () => {
   const shipping = subtotal > 5000 ? 0 : 500; // Free shipping over Ksh 5000
   const totalAmount = subtotal + tax + shipping;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const handleRemoveItem = async (productId: number) => {
+    try {
+      await removeFromCart(productId);
+    } catch (error) {
+      console.error('Error removing item:', error);
+    }
+  };
 
   return (
     <div className="bg-gray-50 py-8">
@@ -91,36 +91,16 @@ const Cart = () => {
                         </div>
                         
                         <div className="flex items-center justify-between">
-                          {/* Quantity */}
-                          <div className="flex items-center border border-gray-300 rounded-md">
-                            <button
-                              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                              className="px-2 py-1 text-gray-600 hover:bg-gray-100"
-                              disabled={item.quantity <= 1}
-                            >
-                              <Minus size={16} />
-                            </button>
-                            <input
-                              type="number"
-                              min="1"
-                              max="10"
-                              value={item.quantity}
-                              onChange={(e) => updateQuantity(item.product.id, parseInt(e.target.value) || 1)}
-                              className="w-10 text-center border-none focus:ring-0"
-                            />
-                            <button
-                              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                              className="px-2 py-1 text-gray-600 hover:bg-gray-100"
-                              disabled={item.quantity >= 10}
-                            >
-                              <Plus size={16} />
-                            </button>
+                          {/* Quantity Display (Read-only) */}
+                          <div className="flex items-center">
+                            <span className="text-sm text-gray-600">Quantity: </span>
+                            <span className="ml-2 font-medium text-gray-900">{item.quantity}</span>
                           </div>
                           
                           {/* Remove Button */}
                           <button
-                            onClick={() => removeFromCart(item.product.id)}
-                            className="text-gray-500 hover:text-error flex items-center"
+                            onClick={() => handleRemoveItem(item.product.id)}
+                            className="text-gray-500 hover:text-error flex items-center transition-colors"
                           >
                             <Trash2 size={16} className="mr-1" />
                             <span className="text-sm">Remove</span>

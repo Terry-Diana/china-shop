@@ -13,7 +13,8 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [buttonState, setButtonState] = useState<'default' | 'added'>('default');
+  const [cartButtonState, setCartButtonState] = useState<'default' | 'adding' | 'added'>('default');
+  const [favoriteButtonState, setFavoriteButtonState] = useState<'default' | 'adding'>('default');
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addToCart } = useCart();
@@ -28,6 +29,10 @@ const ProductCard = ({ product }: ProductCardProps) => {
       return;
     }
 
+    if (favoriteButtonState === 'adding') return;
+
+    setFavoriteButtonState('adding');
+
     try {
       if (isFavorite(product.id)) {
         await removeFromFavorites(product.id);
@@ -36,6 +41,8 @@ const ProductCard = ({ product }: ProductCardProps) => {
       }
     } catch (error) {
       console.error('Error updating favorites:', error);
+    } finally {
+      setFavoriteButtonState('default');
     }
   };
 
@@ -48,23 +55,40 @@ const ProductCard = ({ product }: ProductCardProps) => {
       return;
     }
 
-    if (product.stock === 0) {
+    if (product.stock === 0 || cartButtonState !== 'default') {
       return;
     }
+
+    setCartButtonState('adding');
 
     try {
       await addToCart(product.id, 1);
       
       // Show "Added to Cart" state
-      setButtonState('added');
+      setCartButtonState('added');
       
-      // Reset to default after 3 seconds
+      // Reset to default after 2 seconds
       setTimeout(() => {
-        setButtonState('default');
-      }, 3000);
+        setCartButtonState('default');
+      }, 2000);
     } catch (error) {
       console.error('Error adding to cart:', error);
+      setCartButtonState('default');
     }
+  };
+
+  const getCartButtonText = () => {
+    if (product.stock === 0) return 'Out of Stock';
+    if (cartButtonState === 'adding') return 'Adding...';
+    if (cartButtonState === 'added') return 'Added to Cart';
+    return 'Add to Cart';
+  };
+
+  const getCartButtonClass = () => {
+    if (product.stock === 0) return 'bg-gray-400 cursor-not-allowed';
+    if (cartButtonState === 'added') return 'bg-success hover:bg-success-dark';
+    if (cartButtonState === 'adding') return 'bg-primary opacity-75 cursor-wait';
+    return 'bg-primary hover:bg-primary-dark';
   };
 
   return (
@@ -86,10 +110,13 @@ const ProductCard = ({ product }: ProductCardProps) => {
         
         {/* Favorite button */}
         <button
-          className={`absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/80 backdrop-blur-sm transition-colors ${
+          className={`absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/80 backdrop-blur-sm transition-all duration-200 ${
+            favoriteButtonState === 'adding' ? 'opacity-75 cursor-wait' : ''
+          } ${
             isFavorite(product.id) ? 'text-accent' : 'text-gray-400 hover:text-accent'
           }`}
           onClick={handleFavoriteClick}
+          disabled={favoriteButtonState === 'adding'}
           aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart 
@@ -147,20 +174,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
         >
           <button
             onClick={handleAddToCart}
-            disabled={product.stock === 0}
-            className={`w-full py-2 px-4 text-white rounded flex items-center justify-center text-sm font-medium transition-all duration-300 disabled:opacity-75 disabled:cursor-not-allowed ${
-              buttonState === 'added' 
-                ? 'bg-success hover:bg-success-dark' 
-                : 'bg-primary hover:bg-primary-dark'
-            }`}
+            disabled={product.stock === 0 || cartButtonState !== 'default'}
+            className={`w-full py-2 px-4 text-white rounded flex items-center justify-center text-sm font-medium transition-all duration-300 ${getCartButtonClass()}`}
           >
             <ShoppingCart size={16} className="mr-2" />
-            {product.stock === 0 
-              ? 'Out of Stock' 
-              : buttonState === 'added' 
-                ? 'Added to Cart' 
-                : 'Add to Cart'
-            }
+            {getCartButtonText()}
           </button>
         </motion.div>
       </Link>
