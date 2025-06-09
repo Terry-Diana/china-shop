@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Heart, ShoppingCart, Share2, Star, CheckCircle, ChevronDown, ChevronUp, Truck, RotateCcw, Shield, AlertTriangle } from 'lucide-react';
+import { Heart, ShoppingCart, Share2, Star, CheckCircle, ChevronDown, ChevronUp, Truck, RotateCcw, Shield, AlertTriangle, BarChart3 } from 'lucide-react';
 import { mockProducts } from '../data/mockProducts';
 import Button from '../components/ui/Button';
 import ProductCarousel from '../components/home/ProductCarousel';
+import TouchOptimizedCarousel from '../components/ui/TouchOptimizedCarousel';
+import RecentlyViewed from '../components/ui/RecentlyViewed';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../contexts/CartContext';
 import { useFavorites } from '../hooks/useFavorites';
+import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
+import { useProductComparison } from '../hooks/useProductComparison';
+import { useAnalytics } from '../hooks/useAnalytics';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +20,9 @@ const ProductDetail = () => {
   const { user } = useAuth();
   const { addToCart } = useCart();
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
+  const { addToRecentlyViewed } = useRecentlyViewed();
+  const { addToComparison, isInComparison, canAddMore } = useProductComparison();
+  const { trackProductView, trackAddToCart, trackAddToWishlist } = useAnalytics();
   
   const [product, setProduct] = useState(mockProducts[0]);
   const [relatedProducts, setRelatedProducts] = useState(mockProducts.slice(1, 6));
@@ -29,6 +37,12 @@ const ProductDetail = () => {
       const foundProduct = mockProducts.find(p => p.id === parseInt(id)) || mockProducts[0];
       setProduct(foundProduct);
       
+      // Add to recently viewed
+      addToRecentlyViewed(foundProduct);
+      
+      // Track product view
+      trackProductView(foundProduct.id, foundProduct.name);
+      
       const related = mockProducts
         .filter(p => p.category === foundProduct.category && p.id !== foundProduct.id)
         .slice(0, 5);
@@ -38,7 +52,7 @@ const ProductDetail = () => {
       
       window.scrollTo(0, 0);
     }
-  }, [id]);
+  }, [id, addToRecentlyViewed, trackProductView]);
   
   const increaseQuantity = () => {
     if (quantity < 10) setQuantity(quantity + 1);
@@ -63,6 +77,7 @@ const ProductDetail = () => {
         await removeFromFavorites(product.id);
       } else {
         await addToFavorites(product.id);
+        trackAddToWishlist(product.id, product.name);
       }
     } catch (error) {
       console.error('Error updating favorites:', error);
@@ -85,6 +100,7 @@ const ProductDetail = () => {
 
     try {
       await addToCart(product.id, quantity);
+      trackAddToCart(product.id, product.name, quantity, product.price);
       
       // Show "Added to Cart" state
       setButtonState('added');
@@ -96,6 +112,12 @@ const ProductDetail = () => {
     } catch (error) {
       console.error('Error adding to cart:', error);
       setButtonState('default');
+    }
+  };
+
+  const handleAddToComparison = () => {
+    if (canAddMore && !isInComparison(product.id)) {
+      addToComparison(product);
     }
   };
 
@@ -112,6 +134,8 @@ const ProductDetail = () => {
     if (buttonState === 'adding') return 'bg-primary opacity-75 cursor-wait';
     return 'bg-primary hover:bg-primary-dark';
   };
+
+  const images = product.images || [product.image];
 
   return (
     <div className="bg-gray-50 py-8">
@@ -130,38 +154,56 @@ const ProductDetail = () => {
           <div className="md:flex">
             <div className="md:w-1/2 p-4">
               <div className="sticky top-24">
-                <div className="relative aspect-square overflow-hidden rounded-lg mb-4">
-                  <img
-                    src={product.images?.[currentImage] || product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                  {product.discount > 0 && (
-                    <div className="absolute top-4 left-4 bg-accent text-white text-sm font-bold px-2 py-1 rounded">
-                      {product.discount}% OFF
-                    </div>
-                  )}
-                </div>
-                
-                {product.images && product.images.length > 1 && (
-                  <div className="flex space-x-2 mt-2">
-                    {product.images.map((image, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentImage(index)}
-                        className={`w-20 h-20 border-2 rounded overflow-hidden ${
-                          currentImage === index ? 'border-primary' : 'border-transparent'
-                        }`}
-                      >
+                {/* Mobile/Touch optimized carousel */}
+                <div className="md:hidden">
+                  <TouchOptimizedCarousel showArrows={false} showDots={true}>
+                    {images.map((image, index) => (
+                      <div key={index} className="aspect-square overflow-hidden rounded-lg">
                         <img
                           src={image}
                           alt={`${product.name} - view ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
-                      </button>
+                      </div>
                     ))}
+                  </TouchOptimizedCarousel>
+                </div>
+
+                {/* Desktop image gallery */}
+                <div className="hidden md:block">
+                  <div className="relative aspect-square overflow-hidden rounded-lg mb-4">
+                    <img
+                      src={images[currentImage]}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                    {product.discount > 0 && (
+                      <div className="absolute top-4 left-4 bg-accent text-white text-sm font-bold px-2 py-1 rounded">
+                        {product.discount}% OFF
+                      </div>
+                    )}
                   </div>
-                )}
+                  
+                  {images.length > 1 && (
+                    <div className="flex space-x-2 mt-2">
+                      {images.map((image, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentImage(index)}
+                          className={`w-20 h-20 border-2 rounded overflow-hidden ${
+                            currentImage === index ? 'border-primary' : 'border-transparent'
+                          }`}
+                        >
+                          <img
+                            src={image}
+                            alt={`${product.name} - view ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             
@@ -276,6 +318,16 @@ const ProductDetail = () => {
                 >
                   <Heart size={20} fill={isFavorite(product.id) ? "#bb313e" : "none"} />
                 </button>
+
+                {canAddMore && !isInComparison(product.id) && (
+                  <button
+                    onClick={handleAddToComparison}
+                    className="p-3 rounded-md border border-gray-300 text-gray-500 hover:border-gray-400 transition-colors"
+                    aria-label="Add to comparison"
+                  >
+                    <BarChart3 size={20} />
+                  </button>
+                )}
                 
                 <button
                   className="p-3 rounded-md border border-gray-300 text-gray-500 hover:border-gray-400"
@@ -350,7 +402,7 @@ const ProductDetail = () => {
                     { name: 'Dimensions', value: '10 x 5 x 3 inches' },
                     { name: 'Weight', value: '1.2 lbs' },
                     { name: 'Warranty', value: '1 year' },
-                    { name: 'Country of Origin', value: 'United States' },
+                    { name: 'Country of Origin', value: 'Kenya' },
                   ].map((spec, index) => (
                     <div key={index} className="border-b border-gray-200 pb-3">
                       <dt className="text-sm font-medium text-gray-500">{spec.name}</dt>
@@ -451,6 +503,8 @@ const ProductDetail = () => {
             viewAllLink={`/products/${product.category.toLowerCase()}`}
           />
         </div>
+
+        <RecentlyViewed />
       </div>
     </div>
   );
