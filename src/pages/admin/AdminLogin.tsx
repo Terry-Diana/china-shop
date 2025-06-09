@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, Shield, UserPlus } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Shield, UserPlus, Info } from 'lucide-react';
 import Logo from '../../components/ui/Logo';
 import Button from '../../components/ui/Button';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
@@ -175,19 +175,37 @@ const AdminLogin = () => {
             </div>
           )}
 
+          {/* Default Admin Credentials Info */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="flex items-start">
+              <Info className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-medium mb-1">Default Super Admin Access</p>
+                <p className="mb-2">Use these credentials to access the admin panel:</p>
+                <div className="bg-blue-100 p-2 rounded text-xs font-mono">
+                  <div>Email: superadmin@chinasquare.com</div>
+                  <div>Password: adminsuper@123</div>
+                </div>
+                <p className="mt-2 text-xs">
+                  You can change these credentials after logging in.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {!hasAdmins && !showRegistration && (
             <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
               <div className="flex items-center">
                 <UserPlus className="h-5 w-5 text-amber-600 mr-2" />
                 <p className="text-sm text-amber-800">
-                  No admin accounts found. You need to create the first admin account.
+                  No admin accounts found. You can create additional admin accounts.
                 </p>
               </div>
               <button
                 onClick={() => setShowRegistration(true)}
                 className="mt-2 text-sm text-amber-700 hover:text-amber-900 underline"
               >
-                Create First Admin Account
+                Create Additional Admin Account
               </button>
             </div>
           )}
@@ -323,7 +341,7 @@ const AdminLogin = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
-                    placeholder="admin@chinasquare.com"
+                    placeholder="superadmin@chinasquare.com"
                     disabled={isLoading}
                   />
                 </div>
@@ -376,18 +394,16 @@ const AdminLogin = () => {
                 </Button>
               </div>
 
-              {!hasAdmins && (
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowRegistration(true)}
-                    className="text-sm text-primary hover:text-primary-dark underline"
-                    disabled={isLoading}
-                  >
-                    Create First Admin Account
-                  </button>
-                </div>
-              )}
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowRegistration(true)}
+                  className="text-sm text-primary hover:text-primary-dark underline"
+                  disabled={isLoading}
+                >
+                  Create Additional Admin Account
+                </button>
+              </div>
             </form>
           )}
 
