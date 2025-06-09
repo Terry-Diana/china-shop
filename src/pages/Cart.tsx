@@ -69,12 +69,14 @@ const Cart = () => {
                 </div>
                 
                 <ul className="divide-y divide-gray-200">
-                  {items.map((item) => (
+                  {items.map((item, index) => (
                     <motion.li 
-                      key={item.id} 
+                      key={`${item.id}-${index}`} 
                       className="p-6 flex flex-col sm:flex-row"
+                      layout
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
                     >
                       {/* Product Image */}
                       <div className="sm:w-20 sm:h-20 mb-4 sm:mb-0">

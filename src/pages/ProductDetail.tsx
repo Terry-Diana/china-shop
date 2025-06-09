@@ -21,7 +21,8 @@ const ProductDetail = () => {
   const [currentImage, setCurrentImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedTab, setSelectedTab] = useState('description');
-  const [buttonState, setButtonState] = useState<'default' | 'added'>('default');
+  const [buttonState, setButtonState] = useState<'default' | 'adding' | 'added'>('default');
+  const [favoriteState, setFavoriteState] = useState<'default' | 'adding'>('default');
   
   useEffect(() => {
     if (id) {
@@ -53,6 +54,10 @@ const ProductDetail = () => {
       return;
     }
 
+    if (favoriteState === 'adding') return;
+
+    setFavoriteState('adding');
+
     try {
       if (isFavorite(product.id)) {
         await removeFromFavorites(product.id);
@@ -61,6 +66,8 @@ const ProductDetail = () => {
       }
     } catch (error) {
       console.error('Error updating favorites:', error);
+    } finally {
+      setFavoriteState('default');
     }
   };
 
@@ -70,9 +77,11 @@ const ProductDetail = () => {
       return;
     }
 
-    if (product.stock === 0) {
+    if (product.stock === 0 || buttonState !== 'default') {
       return;
     }
+
+    setButtonState('adding');
 
     try {
       await addToCart(product.id, quantity);
@@ -86,7 +95,22 @@ const ProductDetail = () => {
       }, 3000);
     } catch (error) {
       console.error('Error adding to cart:', error);
+      setButtonState('default');
     }
+  };
+
+  const getCartButtonText = () => {
+    if (product.stock === 0) return 'Out of Stock';
+    if (buttonState === 'adding') return 'Adding to Cart...';
+    if (buttonState === 'added') return 'Added to Cart';
+    return 'Add to Cart';
+  };
+
+  const getCartButtonClass = () => {
+    if (product.stock === 0) return 'bg-gray-400 cursor-not-allowed';
+    if (buttonState === 'added') return 'bg-success hover:bg-success-dark';
+    if (buttonState === 'adding') return 'bg-primary opacity-75 cursor-wait';
+    return 'bg-primary hover:bg-primary-dark';
   };
 
   return (
@@ -233,19 +257,17 @@ const ProductDetail = () => {
                   icon={<ShoppingCart size={18} />}
                   className="flex-grow md:flex-grow-0"
                   onClick={handleAddToCart}
-                  disabled={product.stock === 0}
+                  disabled={product.stock === 0 || buttonState !== 'default'}
                 >
-                  {product.stock === 0 
-                    ? 'Out of Stock' 
-                    : buttonState === 'added' 
-                      ? 'Added to Cart' 
-                      : 'Add to Cart'
-                  }
+                  {getCartButtonText()}
                 </Button>
                 
                 <button
                   onClick={toggleFavorite}
-                  className={`p-3 rounded-md border ${
+                  disabled={favoriteState === 'adding'}
+                  className={`p-3 rounded-md border transition-all duration-200 ${
+                    favoriteState === 'adding' ? 'opacity-75 cursor-wait' : ''
+                  } ${
                     isFavorite(product.id) 
                       ? 'border-accent text-accent' 
                       : 'border-gray-300 text-gray-500 hover:border-gray-400'
