@@ -3,13 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import Button from '../components/ui/Button';
-import { useCart } from '../hooks/useCart';
+import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../hooks/useAuth';
 
 const Cart = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { cartItems, loading, updateQuantity, removeFromCart, total } = useCart();
+  const { items, loading, updateQuantity, removeFromCart } = useCart();
   
   useEffect(() => {
     document.title = 'Your Cart | China Square';
@@ -22,12 +22,12 @@ const Cart = () => {
   }, [user, loading, navigate]);
 
   const calculateSubtotal = () => {
-    return cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+    return items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
   };
 
   const subtotal = calculateSubtotal();
-  const tax = subtotal * 0.08; // 8% tax
-  const shipping = subtotal > 100 ? 0 : 10;
+  const tax = subtotal * 0.16; // 16% VAT
+  const shipping = subtotal > 5000 ? 0 : 500; // Free shipping over Ksh 5000
   const totalAmount = subtotal + tax + shipping;
 
   if (loading) {
@@ -43,7 +43,7 @@ const Cart = () => {
       <div className="container mx-auto px-4">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-8">Your Cart</h1>
         
-        {cartItems.length > 0 ? (
+        {items.length > 0 ? (
           <div className="lg:flex lg:space-x-8">
             {/* Cart Items */}
             <div className="lg:w-2/3">
@@ -55,13 +55,13 @@ const Cart = () => {
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-gray-900">
-                      Cart Items ({cartItems.length})
+                      Cart Items ({items.length})
                     </h2>
                   </div>
                 </div>
                 
                 <ul className="divide-y divide-gray-200">
-                  {cartItems.map((item) => (
+                  {items.map((item) => (
                     <motion.li 
                       key={item.id} 
                       className="p-6 flex flex-col sm:flex-row"
@@ -86,7 +86,7 @@ const Cart = () => {
                             </Link>
                           </h3>
                           <p className="font-semibold text-gray-900">
-                            ${(item.product.price * item.quantity).toFixed(2)}
+                            Ksh {(item.product.price * item.quantity).toFixed(2)}
                           </p>
                         </div>
                         
@@ -156,21 +156,21 @@ const Cart = () => {
                   <div className="space-y-3 text-sm mb-6">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Subtotal</span>
-                      <span className="text-gray-900">${subtotal.toFixed(2)}</span>
+                      <span className="text-gray-900">Ksh {subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Shipping</span>
                       <span className="text-gray-900">
-                        {shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}
+                        {shipping === 0 ? 'Free' : `Ksh ${shipping.toFixed(2)}`}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Tax (8%)</span>
-                      <span className="text-gray-900">${tax.toFixed(2)}</span>
+                      <span className="text-gray-600">VAT (16%)</span>
+                      <span className="text-gray-900">Ksh {tax.toFixed(2)}</span>
                     </div>
                     <div className="border-t pt-3 flex justify-between font-semibold">
                       <span className="text-gray-900">Total</span>
-                      <span className="text-gray-900">${totalAmount.toFixed(2)}</span>
+                      <span className="text-gray-900">Ksh {totalAmount.toFixed(2)}</span>
                     </div>
                   </div>
                   
@@ -192,8 +192,7 @@ const Cart = () => {
                     <div className="flex justify-center space-x-2">
                       <div className="w-10 h-6 bg-gray-200 rounded flex items-center justify-center text-xs">VISA</div>
                       <div className="w-10 h-6 bg-gray-200 rounded flex items-center justify-center text-xs">MC</div>
-                      <div className="w-10 h-6 bg-gray-200 rounded flex items-center justify-center text-xs">PP</div>
-                      <div className="w-10 h-6 bg-gray-200 rounded flex items-center justify-center text-xs">MP</div>
+                      <div className="w-10 h-6 bg-gray-200 rounded flex items-center justify-center text-xs">MPESA</div>
                     </div>
                   </div>
                 </div>

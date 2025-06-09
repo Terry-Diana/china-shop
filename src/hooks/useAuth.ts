@@ -48,7 +48,7 @@ export const useAuth = create<AuthState>()(
 
         if (error) throw error;
 
-        // Create user profile
+        // Create user profile but DON'T set user state (don't auto-login)
         if (data.user) {
           const { error: profileError } = await supabase
             .from('users')
@@ -60,16 +60,6 @@ export const useAuth = create<AuthState>()(
             });
 
           if (profileError) throw profileError;
-
-          // Set the user in state immediately
-          set({ 
-            user: {
-              id: data.user.id,
-              email: data.user.email!,
-              first_name: userData?.first_name,
-              last_name: userData?.last_name,
-            }
-          });
         }
 
         return data;
@@ -119,15 +109,27 @@ export const useAuth = create<AuthState>()(
         return data;
       },
       logout: async () => {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
-        
-        // Clear all state
-        set({ user: null, admin: null });
-        
-        // Clear localStorage and sessionStorage
-        localStorage.clear();
-        sessionStorage.clear();
+        try {
+          // Clear state first
+          set({ user: null, admin: null });
+          
+          // Sign out from Supabase
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            console.error('Supabase logout error:', error);
+          }
+          
+          // Clear all storage
+          localStorage.clear();
+          sessionStorage.clear();
+          
+          // Force reload to ensure clean state
+          window.location.href = '/';
+        } catch (error) {
+          console.error('Logout error:', error);
+          // Force reload even if there's an error
+          window.location.href = '/';
+        }
       },
     }),
     {
@@ -138,7 +140,7 @@ export const useAuth = create<AuthState>()(
 
 // Initialize auth state
 supabase.auth.onAuthStateChange(async (event, session) => {
-  if (session?.user) {
+  if (session?.user && event === 'SIGNED_IN') {
     const { data: profile } = await supabase
       .from('users')
       .select('*')
@@ -151,7 +153,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       first_name: profile?.first_name,
       last_name: profile?.last_name,
     });
-  } else {
+  } else if (event === 'SIGNED_OUT') {
     useAuth.getState().setUser(null);
   }
   useAuth.setState({ loading: false });

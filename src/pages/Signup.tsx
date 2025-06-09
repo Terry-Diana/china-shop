@@ -91,7 +91,7 @@ const Signup = () => {
               Account Created Successfully!
             </h2>
             <p className="text-gray-600 mb-6">
-              Your account has been created successfully. You can now log in to start shopping.
+              Your account has been created successfully. Please log in to start shopping.
             </p>
             <Button
               variant="primary"
