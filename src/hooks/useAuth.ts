@@ -61,7 +61,7 @@ export const useAuth = create<AuthState>()(
 
           if (profileError) throw profileError;
 
-          // Set the user in state
+          // Set the user in state immediately
           set({ 
             user: {
               id: data.user.id,
@@ -121,7 +121,13 @@ export const useAuth = create<AuthState>()(
       logout: async () => {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
+        
+        // Clear all state
         set({ user: null, admin: null });
+        
+        // Clear localStorage and sessionStorage
+        localStorage.clear();
+        sessionStorage.clear();
       },
     }),
     {

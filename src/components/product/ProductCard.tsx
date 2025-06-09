@@ -13,6 +13,7 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [buttonState, setButtonState] = useState<'default' | 'added'>('default');
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addToCart } = useCart();
@@ -47,8 +48,20 @@ const ProductCard = ({ product }: ProductCardProps) => {
       return;
     }
 
+    if (product.stock === 0) {
+      return;
+    }
+
     try {
       await addToCart(product.id, 1);
+      
+      // Show "Added to Cart" state
+      setButtonState('added');
+      
+      // Reset to default after 3 seconds
+      setTimeout(() => {
+        setButtonState('default');
+      }, 3000);
     } catch (error) {
       console.error('Error adding to cart:', error);
     }
@@ -135,10 +148,19 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <button
             onClick={handleAddToCart}
             disabled={product.stock === 0}
-            className="w-full py-2 px-4 bg-primary hover:bg-primary-dark text-white rounded flex items-center justify-center text-sm font-medium transition-colors disabled:opacity-75 disabled:cursor-not-allowed"
+            className={`w-full py-2 px-4 text-white rounded flex items-center justify-center text-sm font-medium transition-all duration-300 disabled:opacity-75 disabled:cursor-not-allowed ${
+              buttonState === 'added' 
+                ? 'bg-success hover:bg-success-dark' 
+                : 'bg-primary hover:bg-primary-dark'
+            }`}
           >
             <ShoppingCart size={16} className="mr-2" />
-            {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+            {product.stock === 0 
+              ? 'Out of Stock' 
+              : buttonState === 'added' 
+                ? 'Added to Cart' 
+                : 'Add to Cart'
+            }
           </button>
         </motion.div>
       </Link>

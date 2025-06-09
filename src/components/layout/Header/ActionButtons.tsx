@@ -11,10 +11,15 @@ const ActionButtons = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      // Force page reload to clear all state
-      window.location.href = '/';
+      // Clear all local storage and session storage
+      localStorage.clear();
+      sessionStorage.clear();
+      // Force a complete page reload to reset all state
+      window.location.reload();
     } catch (error) {
       console.error('Error logging out:', error);
+      // Force reload even if logout fails
+      window.location.reload();
     }
   };
 
@@ -28,6 +33,7 @@ const ActionButtons = () => {
         <Heart size={24} />
       </Link>
       
+      {/* Only show cart when user is logged in */}
       {user && (
         <Link
           to="/cart"
@@ -36,7 +42,7 @@ const ActionButtons = () => {
         >
           <ShoppingCart size={24} />
           {itemCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-accent text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+            <span className="absolute -top-1 -right-1 bg-accent text-white text-xs min-w-[20px] h-5 flex items-center justify-center rounded-full font-medium">
               {itemCount}
             </span>
           )}
@@ -48,7 +54,7 @@ const ActionButtons = () => {
           <span className="text-white">Hi, {user.first_name || 'User'}</span>
           <button 
             onClick={handleLogout}
-            className="text-white hover:text-accent-200 flex items-center space-x-1"
+            className="text-white hover:text-accent-200 flex items-center space-x-1 transition-colors"
           >
             <LogOut size={20} />
             <span className="text-sm">Logout</span>
