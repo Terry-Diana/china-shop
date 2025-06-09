@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { Sliders, Filter, X, Check } from 'lucide-react';
+import { Sliders, Filter, X, Check, Grid, List } from 'lucide-react';
 import ProductCard from '../components/product/ProductCard';
+import VirtualizedList from '../components/ui/VirtualizedList';
+import AdvancedFilters from '../components/ui/AdvancedFilters';
 import { mockProducts } from '../data/mockProducts';
 import Button from '../components/ui/Button';
+import { useAnalytics } from '../hooks/useAnalytics';
 
 const ProductList = () => {
   const { category } = useParams<{ category: string }>();
@@ -11,16 +14,28 @@ const ProductList = () => {
   const searchParams = new URLSearchParams(location.search);
   const searchQuery = searchParams.get('search');
   const filterParam = searchParams.get('filter');
+  const { trackSearch } = useAnalytics();
   
   const [products, setProducts] = useState(mockProducts);
   const [filteredProducts, setFilteredProducts] = useState(mockProducts);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 50000]);
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [sortOption, setSortOption] = useState('popularity');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [useVirtualization, setUseVirtualization] = useState(false);
   
-  // Extract unique brands from products
+  const [filters, setFilters] = useState({
+    priceRange: [0, 50000] as [number, number],
+    brands: [] as string[],
+    categories: [] as string[],
+    rating: 0,
+    inStock: false,
+    onSale: false,
+    sortBy: 'popularity'
+  });
+  
+  // Extract unique brands and categories from products
   const brands = [...new Set(mockProducts.map(product => product.brand))];
+  const categories = [...new Set(mockProducts.map(product => product.category))];
   
   // Update filters when params change
   useEffect(() => {
@@ -39,6 +54,9 @@ const ProductList = () => {
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.description.toLowerCase().includes(searchQuery.toLowerCase())
       );
+      
+      // Track search
+      trackSearch(searchQuery, filtered.length);
     }
     
     // Filter by special filters (new, best-sellers, deals)
@@ -60,9 +78,15 @@ const ProductList = () => {
     setProducts(filtered);
     
     // Reset other filters
-    setPriceRange([0, 50000]);
-    setSelectedBrands([]);
-    setSortOption('popularity');
+    setFilters({
+      priceRange: [0, 50000],
+      brands: [],
+      categories: [],
+      rating: 0,
+      inStock: false,
+      onSale: false,
+      sortBy: 'popularity'
+    });
     
     // Update document title
     if (category) {
@@ -75,7 +99,7 @@ const ProductList = () => {
     
     // Scroll to top when params change
     window.scrollTo(0, 0);
-  }, [category, searchQuery, filterParam]);
+  }, [category, searchQuery, filterParam, trackSearch]);
   
   // Apply filters
   useEffect(() => {
@@ -83,16 +107,36 @@ const ProductList = () => {
     
     // Apply price filter
     result = result.filter(p => 
-      p.price >= priceRange[0] && p.price <= priceRange[1]
+      p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]
     );
     
     // Apply brand filter
-    if (selectedBrands.length > 0) {
-      result = result.filter(p => selectedBrands.includes(p.brand));
+    if (filters.brands.length > 0) {
+      result = result.filter(p => filters.brands.includes(p.brand));
+    }
+    
+    // Apply category filter
+    if (filters.categories.length > 0) {
+      result = result.filter(p => filters.categories.includes(p.category));
+    }
+    
+    // Apply rating filter
+    if (filters.rating > 0) {
+      result = result.filter(p => p.rating >= filters.rating);
+    }
+    
+    // Apply stock filter
+    if (filters.inStock) {
+      result = result.filter(p => p.stock > 0);
+    }
+    
+    // Apply sale filter
+    if (filters.onSale) {
+      result = result.filter(p => p.discount > 0);
     }
     
     // Apply sorting
-    switch (sortOption) {
+    switch (filters.sortBy) {
       case 'price-low':
         result.sort((a, b) => a.price - b.price);
         break;
@@ -105,20 +149,18 @@ const ProductList = () => {
       case 'rating':
         result.sort((a, b) => b.rating - a.rating);
         break;
+      case 'sales':
+        result.sort((a, b) => (a.bestSeller === b.bestSeller) ? 0 : a.bestSeller ? -1 : 1);
+        break;
       default: // popularity
         result.sort((a, b) => (a.bestSeller === b.bestSeller) ? 0 : a.bestSeller ? -1 : 1);
     }
     
     setFilteredProducts(result);
-  }, [products, priceRange, selectedBrands, sortOption]);
-  
-  const toggleBrand = (brand: string) => {
-    setSelectedBrands(prev => 
-      prev.includes(brand)
-        ? prev.filter(b => b !== brand)
-        : [...prev, brand]
-    );
-  };
+    
+    // Enable virtualization for large lists
+    setUseVirtualization(result.length > 50);
+  }, [products, filters]);
   
   // Generate page title
   const getPageTitle = () => {
@@ -139,6 +181,12 @@ const ProductList = () => {
     return 'All Products';
   };
 
+  const renderProductItem = (product: any, index: number) => (
+    <div className={viewMode === 'grid' ? 'p-2' : 'p-4 border-b'}>
+      <ProductCard product={product} />
+    </div>
+  );
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container mx-auto px-4 py-8">
@@ -153,52 +201,83 @@ const ProductList = () => {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters - Desktop */}
           <div className="hidden lg:block w-64 flex-shrink-0">
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
               <h2 className="font-semibold text-lg mb-4">Filters</h2>
               
               {/* Price Range */}
               <div className="mb-6">
                 <h3 className="font-medium text-gray-900 mb-3">Price Range</h3>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Ksh {priceRange[0]}</span>
-                  <span className="text-sm text-gray-600">Ksh {priceRange[1]}</span>
+                  <span className="text-sm text-gray-600">Ksh {filters.priceRange[0]}</span>
+                  <span className="text-sm text-gray-600">Ksh {filters.priceRange[1]}</span>
                 </div>
                 <input
                   type="range"
                   min="0"
                   max="50000"
                   step="1000"
-                  value={priceRange[1]}
-                  onChange={e => setPriceRange([priceRange[0], parseInt(e.target.value)])}
+                  value={filters.priceRange[1]}
+                  onChange={e => setFilters(prev => ({
+                    ...prev,
+                    priceRange: [prev.priceRange[0], parseInt(e.target.value)]
+                  }))}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
               
-              {/* Brands */}
-              <div>
-                <h3 className="font-medium text-gray-900 mb-3">Brands</h3>
+              {/* Quick Filters */}
+              <div className="mb-6">
+                <h3 className="font-medium text-gray-900 mb-3">Quick Filters</h3>
                 <div className="space-y-2">
-                  {brands.map(brand => (
-                    <label key={brand} className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedBrands.includes(brand)}
-                        onChange={() => toggleBrand(brand)}
-                        className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
-                      />
-                      <span className="ml-2 text-gray-700">{brand}</span>
-                    </label>
-                  ))}
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.inStock}
+                      onChange={(e) => setFilters(prev => ({
+                        ...prev,
+                        inStock: e.target.checked
+                      }))}
+                      className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                    />
+                    <span className="ml-2 text-gray-700">In Stock Only</span>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.onSale}
+                      onChange={(e) => setFilters(prev => ({
+                        ...prev,
+                        onSale: e.target.checked
+                      }))}
+                      className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                    />
+                    <span className="ml-2 text-gray-700">On Sale</span>
+                  </label>
                 </div>
               </div>
+              
+              {/* Advanced Filters Button */}
+              <Button
+                variant="outline"
+                fullWidth
+                icon={<Sliders size={16} />}
+                onClick={() => setShowAdvancedFilters(true)}
+              >
+                Advanced Filters
+              </Button>
               
               {/* Clear Filters */}
               <div className="mt-6 pt-4 border-t border-gray-200">
                 <button
-                  onClick={() => {
-                    setPriceRange([0, 50000]);
-                    setSelectedBrands([]);
-                  }}
+                  onClick={() => setFilters({
+                    priceRange: [0, 50000],
+                    brands: [],
+                    categories: [],
+                    rating: 0,
+                    inStock: false,
+                    onSale: false,
+                    sortBy: 'popularity'
+                  })}
                   className="text-sm text-primary hover:text-primary-dark"
                 >
                   Clear All Filters
@@ -211,50 +290,100 @@ const ProductList = () => {
           <div className="flex-grow">
             {/* Controls Bar */}
             <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                className="lg:hidden"
-                icon={<Filter size={16} />}
-                onClick={() => setIsMobileFilterOpen(true)}
-              >
-                Filters
-              </Button>
-              
-              <div className="flex items-center ml-auto">
-                <label htmlFor="sort" className="mr-2 text-sm text-gray-700">Sort by:</label>
-                <select
-                  id="sort"
-                  value={sortOption}
-                  onChange={e => setSortOption(e.target.value)}
-                  className="bg-white border border-gray-300 rounded-md py-1.5 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="lg:hidden"
+                  icon={<Filter size={16} />}
+                  onClick={() => setIsMobileFilterOpen(true)}
                 >
-                  <option value="popularity">Popularity</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="newest">Newest First</option>
-                  <option value="rating">Highest Rated</option>
-                </select>
+                  Filters
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Sliders size={16} />}
+                  onClick={() => setShowAdvancedFilters(true)}
+                >
+                  Advanced
+                </Button>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                {/* View Mode Toggle */}
+                <div className="flex border border-gray-300 rounded-md">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-gray-600'}`}
+                  >
+                    <Grid size={16} />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 ${viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-600'}`}
+                  >
+                    <List size={16} />
+                  </button>
+                </div>
+                
+                {/* Sort Dropdown */}
+                <div className="flex items-center">
+                  <label htmlFor="sort" className="mr-2 text-sm text-gray-700">Sort by:</label>
+                  <select
+                    id="sort"
+                    value={filters.sortBy}
+                    onChange={e => setFilters(prev => ({ ...prev, sortBy: e.target.value }))}
+                    className="bg-white border border-gray-300 rounded-md py-1.5 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="popularity">Popularity</option>
+                    <option value="price-low">Price: Low to High</option>
+                    <option value="price-high">Price: High to Low</option>
+                    <option value="newest">Newest First</option>
+                    <option value="rating">Highest Rated</option>
+                    <option value="sales">Best Selling</option>
+                  </select>
+                </div>
               </div>
             </div>
             
             {/* Products */}
             {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                {filteredProducts.map(product => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
+              useVirtualization ? (
+                <VirtualizedList
+                  items={filteredProducts}
+                  itemHeight={viewMode === 'grid' ? 400 : 200}
+                  containerHeight={800}
+                  renderItem={renderProductItem}
+                  className="bg-white rounded-lg shadow-sm"
+                />
+              ) : (
+                <div className={`${
+                  viewMode === 'grid' 
+                    ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6'
+                    : 'space-y-4'
+                }`}>
+                  {filteredProducts.map(product => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              )
             ) : (
               <div className="text-center py-12">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
                 <p className="text-gray-600 mb-6">Try adjusting your filters or search term.</p>
                 <Button 
                   variant="primary"
-                  onClick={() => {
-                    setPriceRange([0, 50000]);
-                    setSelectedBrands([]);
-                  }}
+                  onClick={() => setFilters({
+                    priceRange: [0, 50000],
+                    brands: [],
+                    categories: [],
+                    rating: 0,
+                    inStock: false,
+                    onSale: false,
+                    sortBy: 'popularity'
+                  })}
                 >
                   Clear Filters
                 </Button>
@@ -263,6 +392,16 @@ const ProductList = () => {
           </div>
         </div>
       </div>
+      
+      {/* Advanced Filters Modal */}
+      <AdvancedFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        availableBrands={brands}
+        availableCategories={categories}
+        onClose={() => setShowAdvancedFilters(false)}
+        isOpen={showAdvancedFilters}
+      />
       
       {/* Mobile Filters */}
       {isMobileFilterOpen && (
@@ -279,39 +418,36 @@ const ProductList = () => {
             </div>
             
             <div className="p-4">
-              {/* Price Range */}
-              <div className="mb-6">
-                <h3 className="font-medium text-gray-900 mb-3">Price Range</h3>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Ksh {priceRange[0]}</span>
-                  <span className="text-sm text-gray-600">Ksh {priceRange[1]}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="50000"
-                  step="1000"
-                  value={priceRange[1]}
-                  onChange={e => setPriceRange([priceRange[0], parseInt(e.target.value)])}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-              </div>
-              
-              {/* Brands */}
-              <div>
-                <h3 className="font-medium text-gray-900 mb-3">Brands</h3>
-                <div className="space-y-2">
-                  {brands.map(brand => (
-                    <label key={brand} className="flex items-center cursor-pointer">
+              {/* Mobile filter content - simplified version */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">Quick Filters</h3>
+                  <div className="space-y-2">
+                    <label className="flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={selectedBrands.includes(brand)}
-                        onChange={() => toggleBrand(brand)}
+                        checked={filters.inStock}
+                        onChange={(e) => setFilters(prev => ({
+                          ...prev,
+                          inStock: e.target.checked
+                        }))}
                         className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
                       />
-                      <span className="ml-2 text-gray-700">{brand}</span>
+                      <span className="ml-2 text-gray-700">In Stock Only</span>
                     </label>
-                  ))}
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filters.onSale}
+                        onChange={(e) => setFilters(prev => ({
+                          ...prev,
+                          onSale: e.target.checked
+                        }))}
+                        className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                      />
+                      <span className="ml-2 text-gray-700">On Sale</span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -321,10 +457,15 @@ const ProductList = () => {
                 variant="outline"
                 size="sm"
                 fullWidth
-                onClick={() => {
-                  setPriceRange([0, 50000]);
-                  setSelectedBrands([]);
-                }}
+                onClick={() => setFilters({
+                  priceRange: [0, 50000],
+                  brands: [],
+                  categories: [],
+                  rating: 0,
+                  inStock: false,
+                  onSale: false,
+                  sortBy: 'popularity'
+                })}
               >
                 Clear All
               </Button>
@@ -334,7 +475,7 @@ const ProductList = () => {
                 fullWidth
                 onClick={() => setIsMobileFilterOpen(false)}
               >
-                Apply Filters
+                Apply
               </Button>
             </div>
           </div>

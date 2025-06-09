@@ -1,0 +1,29 @@
+{
+  "name": "China Square",
+  "short_name": "China Square",
+  "description": "Better Choices, Better Prices",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#013352",
+  "theme_color": "#013352",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/china-square-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/china-square-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "business"],
+  "lang": "en",
+  "dir": "ltr",
+  "scope": "/",
+  "prefer_related_applications": false
+}
