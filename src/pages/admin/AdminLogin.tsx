@@ -1,20 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, Shield, UserPlus, Info } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Shield, UserPlus, Info, AlertCircle } from 'lucide-react';
 import Logo from '../../components/ui/Logo';
 import Button from '../../components/ui/Button';
-import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { supabase } from '../../lib/supabase';
 
 const AdminLogin = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('superadmin@chinasquare.com');
+  const [password, setPassword] = useState('adminsuper@123');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showRegistration, setShowRegistration] = useState(false);
-  const [hasAdmins, setHasAdmins] = useState(true);
   
   // Registration form state
   const [regName, setRegName] = useState('');
@@ -23,50 +22,31 @@ const AdminLogin = () => {
   const [regShowPassword, setRegShowPassword] = useState(false);
   
   const navigate = useNavigate();
-  const { admin } = useAdminAuth();
 
-  // Redirect if already logged in
+  // Clear messages after 5 seconds
   useEffect(() => {
-    if (admin) {
-      navigate('/admin');
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError('');
+        setSuccess('');
+      }, 5000);
+      return () => clearTimeout(timer);
     }
-  }, [admin, navigate]);
-
-  // Check if any admins exist
-  useEffect(() => {
-    const checkAdmins = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('admins')
-          .select('id')
-          .limit(1);
-        
-        if (error) {
-          console.error('Error checking admins:', error);
-          setHasAdmins(false);
-          return;
-        }
-        
-        setHasAdmins(data && data.length > 0);
-      } catch (error) {
-        console.error('Error checking admins:', error);
-        setHasAdmins(false);
-      }
-    };
-    
-    checkAdmins();
-  }, []);
+  }, [error, success]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isLoading) return; // Prevent multiple submissions
+    if (isLoading) return;
     
     setIsLoading(true);
     setError('');
+    setSuccess('');
     
     try {
-      // Direct Supabase auth login
+      console.log('Attempting login with:', email);
+      
+      // Step 1: Authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password,
@@ -74,14 +54,16 @@ const AdminLogin = () => {
 
       if (authError) {
         console.error('Auth error:', authError);
-        throw authError;
+        throw new Error('Invalid email or password. Please check your credentials.');
       }
 
       if (!authData.user) {
-        throw new Error('No user data returned from authentication');
+        throw new Error('Authentication failed - no user data returned');
       }
 
-      // Check if user is admin
+      console.log('Auth successful, checking admin status for user:', authData.user.id);
+
+      // Step 2: Check if user is an admin
       const { data: adminData, error: adminError } = await supabase
         .from('admins')
         .select('*')
@@ -92,7 +74,12 @@ const AdminLogin = () => {
         console.error('Admin lookup error:', adminError);
         // Sign out the user since they're not an admin
         await supabase.auth.signOut();
-        throw new Error('Access denied. This account does not have admin privileges.');
+        
+        if (adminError.code === 'PGRST116') {
+          throw new Error('Access denied. This account does not have admin privileges.');
+        } else {
+          throw new Error('Error verifying admin status. Please try again.');
+        }
       }
 
       if (!adminData) {
@@ -100,25 +87,17 @@ const AdminLogin = () => {
         throw new Error('Access denied. Admin privileges required.');
       }
 
-      // Success - navigate to admin dashboard
-      navigate('/admin');
+      console.log('Admin verification successful:', adminData);
+      setSuccess('Login successful! Redirecting to admin dashboard...');
+      
+      // Small delay to show success message
+      setTimeout(() => {
+        navigate('/admin');
+      }, 1000);
       
     } catch (err: any) {
       console.error('Login error:', err);
-      
-      let errorMessage = 'Login failed. Please try again.';
-      
-      if (err.message?.includes('Invalid login credentials')) {
-        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
-      } else if (err.message?.includes('Admin privileges required') || err.message?.includes('Access denied')) {
-        errorMessage = 'Access denied. This account does not have admin privileges.';
-      } else if (err.message?.includes('Email not confirmed')) {
-        errorMessage = 'Please confirm your email address before logging in.';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
+      setError(err.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -127,10 +106,11 @@ const AdminLogin = () => {
   const handleRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isLoading) return; // Prevent multiple submissions
+    if (isLoading) return;
     
     setIsLoading(true);
     setError('');
+    setSuccess('');
     
     try {
       // Validate inputs
@@ -144,18 +124,28 @@ const AdminLogin = () => {
         throw new Error('Password must be at least 6 characters long');
       }
 
-      // Create auth user
+      console.log('Creating admin account for:', regEmail.trim());
+
+      // Step 1: Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: regEmail.trim(),
         password: regPassword,
         options: {
-          data: { name: regName.trim() },
+          data: { 
+            name: regName.trim(),
+            role: 'admin'
+          },
           emailRedirectTo: undefined, // Disable email confirmation
         },
       });
 
       if (authError) {
         console.error('Auth signup error:', authError);
+        
+        if (authError.message.includes('User already registered')) {
+          throw new Error('An account with this email already exists. Please try logging in instead.');
+        }
+        
         throw authError;
       }
 
@@ -163,60 +153,54 @@ const AdminLogin = () => {
         throw new Error('Failed to create user account');
       }
 
-      // Create admin record
+      console.log('Auth user created, creating admin record for:', authData.user.id);
+
+      // Step 2: Create admin record
       const { error: adminError } = await supabase
         .from('admins')
         .insert({
           id: authData.user.id,
           email: regEmail.trim(),
           name: regName.trim(),
-          role: hasAdmins ? 'admin' : 'super_admin', // First admin is super admin
+          role: 'admin',
         });
 
       if (adminError) {
         console.error('Admin creation error:', adminError);
+        
         // Try to clean up the auth user
         try {
           await supabase.auth.signOut();
         } catch (cleanupError) {
           console.error('Cleanup error:', cleanupError);
         }
-        throw adminError;
+        
+        throw new Error('Failed to create admin record. Please try again.');
       }
       
-      // Update hasAdmins state
-      setHasAdmins(true);
+      console.log('Admin account created successfully');
       
-      // Success message and switch to login
-      setError('');
+      // Success - switch to login form
+      setSuccess('Admin account created successfully! You can now log in.');
       setShowRegistration(false);
       setRegName('');
       setRegEmail('');
       setRegPassword('');
       setEmail(regEmail.trim()); // Pre-fill login email
       
-      // Show success message
-      alert('Admin account created successfully! Please log in with your credentials.');
-      
     } catch (err: any) {
       console.error('Registration error:', err);
-      
-      let errorMessage = 'Registration failed. Please try again.';
-      
-      if (err.message?.includes('User already registered')) {
-        errorMessage = 'An account with this email already exists. Please try logging in instead.';
-      } else if (err.message?.includes('Password should be at least 6 characters')) {
-        errorMessage = 'Password must be at least 6 characters long.';
-      } else if (err.message?.includes('Invalid email')) {
-        errorMessage = 'Please enter a valid email address.';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const resetToDefaults = () => {
+    setEmail('superadmin@chinasquare.com');
+    setPassword('adminsuper@123');
+    setError('');
+    setSuccess('');
   };
 
   return (
@@ -235,7 +219,7 @@ const AdminLogin = () => {
             Admin Portal
           </h2>
           <p className="mt-2 text-primary-100">
-            {showRegistration ? 'Create your admin account' : 'Secure access for authorized personnel only'}
+            {showRegistration ? 'Create your admin account' : 'Secure access for authorized personnel'}
           </p>
         </div>
       </div>
@@ -246,13 +230,23 @@ const AdminLogin = () => {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10"
         >
+          {/* Error Message */}
           {error && (
-            <div className="mb-4 p-3 bg-error-50 text-error rounded-md text-sm border border-error-200">
-              {error}
+            <div className="mb-4 p-3 bg-error-50 text-error rounded-md text-sm border border-error-200 flex items-start">
+              <AlertCircle size={16} className="mr-2 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
-          {/* Default Admin Credentials Info */}
+          {/* Success Message */}
+          {success && (
+            <div className="mb-4 p-3 bg-success-50 text-success-dark rounded-md text-sm border border-success-200 flex items-start">
+              <Shield size={16} className="mr-2 mt-0.5 flex-shrink-0" />
+              <span>{success}</span>
+            </div>
+          )}
+
+          {/* Default Credentials Info */}
           {!showRegistration && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex items-start">
@@ -264,33 +258,20 @@ const AdminLogin = () => {
                     <div>Email: superadmin@chinasquare.com</div>
                     <div>Password: adminsuper@123</div>
                   </div>
-                  <p className="mt-2 text-xs">
-                    You can change these credentials after logging in.
-                  </p>
+                  <button
+                    onClick={resetToDefaults}
+                    className="mt-2 text-xs text-blue-700 hover:text-blue-900 underline"
+                    disabled={isLoading}
+                  >
+                    Use these credentials
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
-          {!hasAdmins && !showRegistration && (
-            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
-              <div className="flex items-center">
-                <UserPlus className="h-5 w-5 text-amber-600 mr-2" />
-                <p className="text-sm text-amber-800">
-                  No admin accounts found. You can create additional admin accounts.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowRegistration(true)}
-                className="mt-2 text-sm text-amber-700 hover:text-amber-900 underline"
-                disabled={isLoading}
-              >
-                Create Additional Admin Account
-              </button>
-            </div>
-          )}
-
           {showRegistration ? (
+            /* Registration Form */
             <form className="space-y-6" onSubmit={handleRegistration}>
               <div>
                 <label htmlFor="regName" className="block text-sm font-medium text-gray-700">
@@ -353,6 +334,7 @@ const AdminLogin = () => {
                     className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
                     disabled={isLoading}
                     minLength={6}
+                    placeholder="Minimum 6 characters"
                   />
                   <button
                     type="button"
@@ -367,33 +349,19 @@ const AdminLogin = () => {
                     )}
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Password must be at least 6 characters long
-                </p>
               </div>
 
               <div>
-                <button
+                <Button
                   type="submit"
+                  variant="primary"
+                  size="lg"
+                  fullWidth
                   disabled={isLoading}
-                  className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                    isLoading 
-                      ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary'
-                  } transition-colors duration-200`}
+                  icon={isLoading ? undefined : <UserPlus size={18} />}
                 >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Creating Account...
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus size={18} className="mr-2" />
-                      Create Admin Account
-                    </>
-                  )}
-                </button>
+                  {isLoading ? 'Creating Account...' : 'Create Admin Account'}
+                </Button>
               </div>
 
               <div className="text-center">
@@ -402,6 +370,7 @@ const AdminLogin = () => {
                   onClick={() => {
                     setShowRegistration(false);
                     setError('');
+                    setSuccess('');
                     setRegName('');
                     setRegEmail('');
                     setRegPassword('');
@@ -414,6 +383,7 @@ const AdminLogin = () => {
               </div>
             </form>
           ) : (
+            /* Login Form */
             <form className="space-y-6" onSubmit={handleLogin}>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -456,6 +426,7 @@ const AdminLogin = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
                     disabled={isLoading}
+                    placeholder="Enter your password"
                   />
                   <button
                     type="button"
@@ -473,33 +444,26 @@ const AdminLogin = () => {
               </div>
 
               <div>
-                <button
+                <Button
                   type="submit"
+                  variant="primary"
+                  size="lg"
+                  fullWidth
                   disabled={isLoading}
-                  className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                    isLoading 
-                      ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary'
-                  } transition-colors duration-200`}
+                  icon={isLoading ? undefined : <Shield size={18} />}
                 >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Signing in...
-                    </>
-                  ) : (
-                    <>
-                      <Shield size={18} className="mr-2" />
-                      Access Admin Portal
-                    </>
-                  )}
-                </button>
+                  {isLoading ? 'Signing in...' : 'Access Admin Portal'}
+                </Button>
               </div>
 
               <div className="text-center">
                 <button
                   type="button"
-                  onClick={() => setShowRegistration(true)}
+                  onClick={() => {
+                    setShowRegistration(true);
+                    setError('');
+                    setSuccess('');
+                  }}
                   className="text-sm text-primary hover:text-primary-dark underline"
                   disabled={isLoading}
                 >
