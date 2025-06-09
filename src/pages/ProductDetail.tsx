@@ -1,25 +1,32 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, ShoppingCart, Share2, Star, CheckCircle, ChevronDown, ChevronUp, Truck, RotateCcw, Shield, AlertTriangle } from 'lucide-react';
 import { mockProducts } from '../data/mockProducts';
 import Button from '../components/ui/Button';
 import ProductCarousel from '../components/home/ProductCarousel';
+import { useAuth } from '../hooks/useAuth';
+import { useCart } from '../contexts/CartContext';
+import { useFavorites } from '../hooks/useFavorites';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { addToCart } = useCart();
+  const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
+  
   const [product, setProduct] = useState(mockProducts[0]);
   const [relatedProducts, setRelatedProducts] = useState(mockProducts.slice(1, 6));
   const [currentImage, setCurrentImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [selectedTab, setSelectedTab] = useState('description');
+  const [buttonState, setButtonState] = useState<'default' | 'added'>('default');
   
   useEffect(() => {
     if (id) {
       const foundProduct = mockProducts.find(p => p.id === parseInt(id)) || mockProducts[0];
       setProduct(foundProduct);
-      setIsFavorite(foundProduct.isFavorite);
       
       const related = mockProducts
         .filter(p => p.category === foundProduct.category && p.id !== foundProduct.id)
@@ -40,8 +47,46 @@ const ProductDetail = () => {
     if (quantity > 1) setQuantity(quantity - 1);
   };
   
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
+  const toggleFavorite = async () => {
+    if (!user) {
+      navigate('/login', { state: { from: window.location.pathname } });
+      return;
+    }
+
+    try {
+      if (isFavorite(product.id)) {
+        await removeFromFavorites(product.id);
+      } else {
+        await addToFavorites(product.id);
+      }
+    } catch (error) {
+      console.error('Error updating favorites:', error);
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!user) {
+      navigate('/login', { state: { from: window.location.pathname } });
+      return;
+    }
+
+    if (product.stock === 0) {
+      return;
+    }
+
+    try {
+      await addToCart(product.id, quantity);
+      
+      // Show "Added to Cart" state
+      setButtonState('added');
+      
+      // Reset to default after 3 seconds
+      setTimeout(() => {
+        setButtonState('default');
+      }, 3000);
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    }
   };
 
   return (
@@ -123,16 +168,16 @@ const ProductDetail = () => {
               
               <div className="mb-6">
                 <div className="flex items-baseline">
-                  <span className="text-2xl font-bold text-gray-900">${product.price.toFixed(2)}</span>
+                  <span className="text-2xl font-bold text-gray-900">Ksh {product.price.toFixed(2)}</span>
                   {product.originalPrice > product.price && (
                     <span className="ml-2 text-lg text-gray-500 line-through">
-                      ${product.originalPrice.toFixed(2)}
+                      Ksh {product.originalPrice.toFixed(2)}
                     </span>
                   )}
                 </div>
                 {product.discount > 0 && (
                   <span className="text-sm text-accent-dark font-medium mt-1 inline-block">
-                    You save ${(product.originalPrice - product.price).toFixed(2)} ({product.discount}%)
+                    You save Ksh {(product.originalPrice - product.price).toFixed(2)} ({product.discount}%)
                   </span>
                 )}
               </div>
@@ -183,24 +228,31 @@ const ProductDetail = () => {
                 </div>
                 
                 <Button
-                  variant="primary"
+                  variant={buttonState === 'added' ? 'accent' : 'primary'}
                   size="lg"
                   icon={<ShoppingCart size={18} />}
                   className="flex-grow md:flex-grow-0"
+                  onClick={handleAddToCart}
+                  disabled={product.stock === 0}
                 >
-                  Add to Cart
+                  {product.stock === 0 
+                    ? 'Out of Stock' 
+                    : buttonState === 'added' 
+                      ? 'Added to Cart' 
+                      : 'Add to Cart'
+                  }
                 </Button>
                 
                 <button
                   onClick={toggleFavorite}
                   className={`p-3 rounded-md border ${
-                    isFavorite 
+                    isFavorite(product.id) 
                       ? 'border-accent text-accent' 
                       : 'border-gray-300 text-gray-500 hover:border-gray-400'
                   }`}
-                  aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
+                  aria-label={isFavorite(product.id) ? "Remove from wishlist" : "Add to wishlist"}
                 >
-                  <Heart size={20} fill={isFavorite ? "#bb313e" : "none"} />
+                  <Heart size={20} fill={isFavorite(product.id) ? "#bb313e" : "none"} />
                 </button>
                 
                 <button

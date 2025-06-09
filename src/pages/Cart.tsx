@@ -211,7 +211,7 @@ const Cart = () => {
               </p>
               <Link to="/products">
                 <Button variant="primary" size="lg">
-                  Start Shopping
+                  Continue Shopping
                 </Button>
               </Link>
             </div>
