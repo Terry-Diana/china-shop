@@ -39,6 +39,47 @@ const HeroSection = () => {
         </div>
       )}
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+      <AnimatePresence initial={false} mode="wait">
+        <motion.div
+          key={`slide-${slides[currentSlide].id}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
+          className="absolute inset-0"
+        >
+          <img
+            src={slides[currentSlide].image}
+            alt=""
+            className="w-full h-full object-cover"
+            onLoad={handleImageLoad}
+            onError={() => setIsLoading(false)}
+          />
+          <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-12 lg:px-24">
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="max-w-xl"
+            >
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent mb-3">
+                {slides[currentSlide].title}
+              </h1>
+              <p className="text-lg md:text-xl text-white opacity-90 mb-6">
+                {slides[currentSlide].subtitle}
+              </p>
+              <Button
+                variant="accent"
+                size="lg"
+                onClick={() =>
+                  (window.location.href = slides[currentSlide].buttonLink)
+                }
+                aria-label={`Shop ${slides[currentSlide].title}`}
+=======
+=======
+>>>>>>> 7c4bdae38a75a1bb3b471dcc9b89eea0e9e23c14
       {/* Mobile/Touch optimized carousel */}
       <div className="md:hidden h-full">
         <TouchOptimizedCarousel autoPlay={true} autoPlayInterval={5000}>
@@ -103,6 +144,10 @@ const HeroSection = () => {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
                 className="max-w-xl"
+<<<<<<< HEAD
+>>>>>>> origin/main
+=======
+>>>>>>> 7c4bdae38a75a1bb3b471dcc9b89eea0e9e23c14
               >
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent mb-3">
                   {slides[currentSlide].title}
