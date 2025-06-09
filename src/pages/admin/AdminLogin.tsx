@@ -23,7 +23,14 @@ const AdminLogin = () => {
   const [regShowPassword, setRegShowPassword] = useState(false);
   
   const navigate = useNavigate();
-  const { login } = useAdminAuth();
+  const { admin } = useAdminAuth();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (admin) {
+      navigate('/admin');
+    }
+  }, [admin, navigate]);
 
   // Check if any admins exist
   useEffect(() => {
@@ -36,7 +43,6 @@ const AdminLogin = () => {
         
         if (error) {
           console.error('Error checking admins:', error);
-          // If table doesn't exist or other error, assume no admins
           setHasAdmins(false);
           return;
         }
@@ -51,42 +57,19 @@ const AdminLogin = () => {
     checkAdmins();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (isLoading) return; // Prevent multiple submissions
+    
     setIsLoading(true);
     setError('');
     
     try {
-      await login(email, password);
-      navigate('/admin');
-    } catch (err: any) {
-      console.error('Login error:', err);
-      if (err.message?.includes('Invalid login credentials')) {
-        setError('Invalid email or password. Please check your credentials and try again.');
-      } else if (err.message?.includes('Admin privileges required')) {
-        setError('Access denied. This account does not have admin privileges.');
-      } else {
-        setError(err.message || 'Login failed. Please try again.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegistration = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      // Create auth user with email confirmation disabled
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: regEmail,
-        password: regPassword,
-        options: {
-          data: { name: regName },
-          emailRedirectTo: undefined, // Disable email confirmation
-        },
+      // Direct Supabase auth login
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
       });
 
       if (authError) {
@@ -94,49 +77,143 @@ const AdminLogin = () => {
         throw authError;
       }
 
-      // Create admin record
-      if (authData.user) {
-        const { error: adminError } = await supabase
-          .from('admins')
-          .insert({
-            id: authData.user.id,
-            email: regEmail,
-            name: regName,
-            role: 'super_admin', // First admin is super admin
-          });
-
-        if (adminError) {
-          console.error('Admin creation error:', adminError);
-          throw adminError;
-        }
-        
-        // Update hasAdmins state
-        setHasAdmins(true);
-        
-        // Now try to login with the new credentials
-        try {
-          await login(regEmail, regPassword);
-          navigate('/admin');
-        } catch (loginError) {
-          console.error('Auto-login after registration failed:', loginError);
-          // Registration succeeded but auto-login failed
-          setError('Account created successfully! Please log in with your credentials.');
-          setShowRegistration(false);
-          setRegName('');
-          setRegEmail('');
-          setRegPassword('');
-          setEmail(regEmail); // Pre-fill login email
-        }
+      if (!authData.user) {
+        throw new Error('No user data returned from authentication');
       }
+
+      // Check if user is admin
+      const { data: adminData, error: adminError } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (adminError) {
+        console.error('Admin lookup error:', adminError);
+        // Sign out the user since they're not an admin
+        await supabase.auth.signOut();
+        throw new Error('Access denied. This account does not have admin privileges.');
+      }
+
+      if (!adminData) {
+        await supabase.auth.signOut();
+        throw new Error('Access denied. Admin privileges required.');
+      }
+
+      // Success - navigate to admin dashboard
+      navigate('/admin');
+      
+    } catch (err: any) {
+      console.error('Login error:', err);
+      
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (err.message?.includes('Invalid login credentials')) {
+        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+      } else if (err.message?.includes('Admin privileges required') || err.message?.includes('Access denied')) {
+        errorMessage = 'Access denied. This account does not have admin privileges.';
+      } else if (err.message?.includes('Email not confirmed')) {
+        errorMessage = 'Please confirm your email address before logging in.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (isLoading) return; // Prevent multiple submissions
+    
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      // Validate inputs
+      if (!regName.trim()) {
+        throw new Error('Name is required');
+      }
+      if (!regEmail.trim()) {
+        throw new Error('Email is required');
+      }
+      if (regPassword.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: regEmail.trim(),
+        password: regPassword,
+        options: {
+          data: { name: regName.trim() },
+          emailRedirectTo: undefined, // Disable email confirmation
+        },
+      });
+
+      if (authError) {
+        console.error('Auth signup error:', authError);
+        throw authError;
+      }
+
+      if (!authData.user) {
+        throw new Error('Failed to create user account');
+      }
+
+      // Create admin record
+      const { error: adminError } = await supabase
+        .from('admins')
+        .insert({
+          id: authData.user.id,
+          email: regEmail.trim(),
+          name: regName.trim(),
+          role: hasAdmins ? 'admin' : 'super_admin', // First admin is super admin
+        });
+
+      if (adminError) {
+        console.error('Admin creation error:', adminError);
+        // Try to clean up the auth user
+        try {
+          await supabase.auth.signOut();
+        } catch (cleanupError) {
+          console.error('Cleanup error:', cleanupError);
+        }
+        throw adminError;
+      }
+      
+      // Update hasAdmins state
+      setHasAdmins(true);
+      
+      // Success message and switch to login
+      setError('');
+      setShowRegistration(false);
+      setRegName('');
+      setRegEmail('');
+      setRegPassword('');
+      setEmail(regEmail.trim()); // Pre-fill login email
+      
+      // Show success message
+      alert('Admin account created successfully! Please log in with your credentials.');
+      
     } catch (err: any) {
       console.error('Registration error:', err);
+      
+      let errorMessage = 'Registration failed. Please try again.';
+      
       if (err.message?.includes('User already registered')) {
-        setError('An account with this email already exists. Please try logging in instead.');
+        errorMessage = 'An account with this email already exists. Please try logging in instead.';
       } else if (err.message?.includes('Password should be at least 6 characters')) {
-        setError('Password must be at least 6 characters long.');
-      } else {
-        setError(err.message || 'Registration failed. Please try again.');
+        errorMessage = 'Password must be at least 6 characters long.';
+      } else if (err.message?.includes('Invalid email')) {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.message) {
+        errorMessage = err.message;
       }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -176,22 +253,24 @@ const AdminLogin = () => {
           )}
 
           {/* Default Admin Credentials Info */}
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-            <div className="flex items-start">
-              <Info className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Default Super Admin Access</p>
-                <p className="mb-2">Use these credentials to access the admin panel:</p>
-                <div className="bg-blue-100 p-2 rounded text-xs font-mono">
-                  <div>Email: superadmin@chinasquare.com</div>
-                  <div>Password: adminsuper@123</div>
+          {!showRegistration && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-start">
+                <Info className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium mb-1">Default Super Admin Access</p>
+                  <p className="mb-2">Use these credentials to access the admin panel:</p>
+                  <div className="bg-blue-100 p-2 rounded text-xs font-mono">
+                    <div>Email: superadmin@chinasquare.com</div>
+                    <div>Password: adminsuper@123</div>
+                  </div>
+                  <p className="mt-2 text-xs">
+                    You can change these credentials after logging in.
+                  </p>
                 </div>
-                <p className="mt-2 text-xs">
-                  You can change these credentials after logging in.
-                </p>
               </div>
             </div>
-          </div>
+          )}
 
           {!hasAdmins && !showRegistration && (
             <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
@@ -204,6 +283,7 @@ const AdminLogin = () => {
               <button
                 onClick={() => setShowRegistration(true)}
                 className="mt-2 text-sm text-amber-700 hover:text-amber-900 underline"
+                disabled={isLoading}
               >
                 Create Additional Admin Account
               </button>
@@ -293,16 +373,27 @@ const AdminLogin = () => {
               </div>
 
               <div>
-                <Button
+                <button
                   type="submit"
-                  variant="primary"
-                  size="lg"
-                  fullWidth
                   disabled={isLoading}
-                  icon={<UserPlus size={18} />}
+                  className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                    isLoading 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary'
+                  } transition-colors duration-200`}
                 >
-                  {isLoading ? 'Creating Account...' : 'Create Admin Account'}
-                </Button>
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Creating Account...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus size={18} className="mr-2" />
+                      Create Admin Account
+                    </>
+                  )}
+                </button>
               </div>
 
               <div className="text-center">
@@ -323,7 +414,7 @@ const AdminLogin = () => {
               </div>
             </form>
           ) : (
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="space-y-6" onSubmit={handleLogin}>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                   Email address
@@ -382,16 +473,27 @@ const AdminLogin = () => {
               </div>
 
               <div>
-                <Button
+                <button
                   type="submit"
-                  variant="primary"
-                  size="lg"
-                  fullWidth
                   disabled={isLoading}
-                  icon={<Shield size={18} />}
+                  className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                    isLoading 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary'
+                  } transition-colors duration-200`}
                 >
-                  {isLoading ? 'Signing in...' : 'Access Admin Portal'}
-                </Button>
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      <Shield size={18} className="mr-2" />
+                      Access Admin Portal
+                    </>
+                  )}
+                </button>
               </div>
 
               <div className="text-center">
