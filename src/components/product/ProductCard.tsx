@@ -13,7 +13,6 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addToCart } = useCart();
@@ -29,7 +28,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
     }
 
     try {
-      setIsLoading(true);
       if (isFavorite(product.id)) {
         await removeFromFavorites(product.id);
       } else {
@@ -37,8 +35,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
       }
     } catch (error) {
       console.error('Error updating favorites:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -52,12 +48,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
     }
 
     try {
-      setIsLoading(true);
       await addToCart(product.id, 1);
     } catch (error) {
       console.error('Error adding to cart:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -84,13 +77,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
             isFavorite(product.id) ? 'text-accent' : 'text-gray-400 hover:text-accent'
           }`}
           onClick={handleFavoriteClick}
-          disabled={isLoading}
           aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart 
             size={18} 
             fill={isFavorite(product.id) ? "#bb313e" : "none"} 
-            className={isLoading ? "animate-pulse" : ""}
           />
         </button>
         
@@ -143,11 +134,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
         >
           <button
             onClick={handleAddToCart}
-            disabled={isLoading || product.stock === 0}
+            disabled={product.stock === 0}
             className="w-full py-2 px-4 bg-primary hover:bg-primary-dark text-white rounded flex items-center justify-center text-sm font-medium transition-colors disabled:opacity-75 disabled:cursor-not-allowed"
           >
             <ShoppingCart size={16} className="mr-2" />
-            {isLoading ? 'Adding...' : product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+            {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
           </button>
         </motion.div>
       </Link>

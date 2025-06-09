@@ -3,13 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import Button from '../components/ui/Button';
-import { useCart } from '../contexts/CartContext';
+import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 
 const Cart = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { items, loading, updateQuantity, removeFromCart } = useCart();
+  const { cartItems, loading, updateQuantity, removeFromCart, total } = useCart();
   
   useEffect(() => {
     document.title = 'Your Cart | China Square';
@@ -22,13 +22,13 @@ const Cart = () => {
   }, [user, loading, navigate]);
 
   const calculateSubtotal = () => {
-    return items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+    return cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
   };
 
   const subtotal = calculateSubtotal();
   const tax = subtotal * 0.08; // 8% tax
   const shipping = subtotal > 100 ? 0 : 10;
-  const total = subtotal + tax + shipping;
+  const totalAmount = subtotal + tax + shipping;
 
   if (loading) {
     return (
@@ -43,7 +43,7 @@ const Cart = () => {
       <div className="container mx-auto px-4">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-8">Your Cart</h1>
         
-        {items.length > 0 ? (
+        {cartItems.length > 0 ? (
           <div className="lg:flex lg:space-x-8">
             {/* Cart Items */}
             <div className="lg:w-2/3">
@@ -55,13 +55,13 @@ const Cart = () => {
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-gray-900">
-                      Cart Items ({items.length})
+                      Cart Items ({cartItems.length})
                     </h2>
                   </div>
                 </div>
                 
                 <ul className="divide-y divide-gray-200">
-                  {items.map((item) => (
+                  {cartItems.map((item) => (
                     <motion.li 
                       key={item.id} 
                       className="p-6 flex flex-col sm:flex-row"
@@ -170,7 +170,7 @@ const Cart = () => {
                     </div>
                     <div className="border-t pt-3 flex justify-between font-semibold">
                       <span className="text-gray-900">Total</span>
-                      <span className="text-gray-900">${total.toFixed(2)}</span>
+                      <span className="text-gray-900">${totalAmount.toFixed(2)}</span>
                     </div>
                   </div>
                   

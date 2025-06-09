@@ -2,8 +2,21 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './useAuth';
 
+interface CartItem {
+  id: string;
+  product_id: number;
+  quantity: number;
+  product: {
+    id: number;
+    name: string;
+    price: number;
+    image_url: string;
+    stock: number;
+  };
+}
+
 export const useCart = () => {
-  const [cartItems, setCartItems] = useState<any[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
@@ -36,19 +49,28 @@ export const useCart = () => {
     if (!user) throw new Error('Must be logged in');
 
     try {
-      const { data, error } = await supabase
-        .from('cart_items')
-        .upsert({
-          user_id: user.id,
-          product_id: productId,
-          quantity,
-        })
-        .select()
-        .single();
+      // Check if item already exists in cart
+      const existingItem = cartItems.find(item => item.product_id === productId);
+      
+      if (existingItem) {
+        // Update quantity
+        const newQuantity = existingItem.quantity + quantity;
+        await updateQuantity(productId, newQuantity);
+      } else {
+        // Add new item
+        const { data, error } = await supabase
+          .from('cart_items')
+          .insert({
+            user_id: user.id,
+            product_id: productId,
+            quantity,
+          })
+          .select()
+          .single();
 
-      if (error) throw error;
-      await fetchCart();
-      return data;
+        if (error) throw error;
+        await fetchCart();
+      }
     } catch (error) {
       throw error;
     }
@@ -58,6 +80,11 @@ export const useCart = () => {
     if (!user) throw new Error('Must be logged in');
 
     try {
+      if (quantity <= 0) {
+        await removeFromCart(productId);
+        return;
+      }
+
       const { error } = await supabase
         .from('cart_items')
         .update({ quantity })
@@ -133,6 +160,9 @@ export const useCart = () => {
     };
   }, [user]);
 
+  const total = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
   return {
     cartItems,
     loading,
@@ -140,5 +170,7 @@ export const useCart = () => {
     updateQuantity,
     removeFromCart,
     clearCart,
+    total,
+    itemCount,
   };
 };

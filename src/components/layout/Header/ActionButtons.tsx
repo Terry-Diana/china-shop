@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart, User, Heart, LogOut } from 'lucide-react';
 import Button from '../../ui/Button';
 import { useAuth } from '../../../hooks/useAuth';
-import { useCart } from '../../../hooks/useCart';
+import { useCart } from '../../../contexts/CartContext';
 
 const ActionButtons = () => {
   const { user, logout } = useAuth();
@@ -11,6 +11,8 @@ const ActionButtons = () => {
   const handleLogout = async () => {
     try {
       await logout();
+      // Force page reload to clear all state
+      window.location.href = '/';
     } catch (error) {
       console.error('Error logging out:', error);
     }
