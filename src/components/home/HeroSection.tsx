@@ -40,6 +40,7 @@ const HeroSection = () => {
       )}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
       <AnimatePresence initial={false} mode="wait">
         <motion.div
           key={`slide-${slides[currentSlide].id}`}
@@ -77,6 +78,8 @@ const HeroSection = () => {
                 }
                 aria-label={`Shop ${slides[currentSlide].title}`}
 =======
+=======
+>>>>>>> 7c4bdae38a75a1bb3b471dcc9b89eea0e9e23c14
       {/* Mobile/Touch optimized carousel */}
       <div className="md:hidden h-full">
         <TouchOptimizedCarousel autoPlay={true} autoPlayInterval={5000}>
@@ -141,7 +144,10 @@ const HeroSection = () => {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
                 className="max-w-xl"
+<<<<<<< HEAD
 >>>>>>> origin/main
+=======
+>>>>>>> 7c4bdae38a75a1bb3b471dcc9b89eea0e9e23c14
               >
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent mb-3">
                   {slides[currentSlide].title}
