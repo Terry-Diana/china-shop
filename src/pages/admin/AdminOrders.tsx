@@ -16,153 +16,113 @@ import {
   User
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { supabase } from '../../lib/supabase';
 
-// Mock orders data
-const mockOrders = [
-  {
-    id: 1,
-    orderNumber: 'ORD-2024-001',
-    customer: { name: 'John Doe', email: 'john@example.com', phone: '+254 700 123 456' },
-    items: [
-      { name: 'Wireless Headphones', quantity: 1, price: 7499.99 },
-      { name: 'Phone Case', quantity: 2, price: 1299.99 }
-    ],
-    status: 'pending',
-    total: 10099.97,
-    subtotal: 8620.68,
-    tax: 1379.31,
-    shipping: 500,
-    paymentMethod: 'M-Pesa',
-    shippingAddress: {
-      line1: '123 Main Street',
-      line2: 'Apt 4B',
-      city: 'Nairobi',
-      state: 'Nairobi County',
-      postalCode: '00100',
-      country: 'Kenya'
-    },
-    createdAt: '2024-01-15T10:30:00Z',
-    updatedAt: '2024-01-15T10:30:00Z'
-  },
-  {
-    id: 2,
-    orderNumber: 'ORD-2024-002',
-    customer: { name: 'Sarah Johnson', email: 'sarah@example.com', phone: '+254 700 234 567' },
-    items: [
-      { name: 'Smart Watch', quantity: 1, price: 6499.99 }
-    ],
-    status: 'processing',
-    total: 7499.99,
-    subtotal: 6499.99,
-    tax: 1000.00,
-    shipping: 0,
-    paymentMethod: 'Card',
-    shippingAddress: {
-      line1: '456 Oak Avenue',
-      city: 'Mombasa',
-      state: 'Mombasa County',
-      postalCode: '80100',
-      country: 'Kenya'
-    },
-    createdAt: '2024-01-14T15:45:00Z',
-    updatedAt: '2024-01-15T09:20:00Z'
-  },
-  {
-    id: 3,
-    orderNumber: 'ORD-2024-003',
-    customer: { name: 'Mike Wilson', email: 'mike@example.com', phone: '+254 700 345 678' },
-    items: [
-      { name: 'Running Shoes', quantity: 1, price: 5999.99 },
-      { name: 'Sports Socks', quantity: 3, price: 899.99 }
-    ],
-    status: 'shipped',
-    total: 8699.96,
-    subtotal: 8699.96,
-    tax: 0,
-    shipping: 0,
-    paymentMethod: 'M-Pesa',
-    trackingNumber: 'TRK123456789',
-    shippingAddress: {
-      line1: '789 Pine Road',
-      city: 'Kisumu',
-      state: 'Kisumu County',
-      postalCode: '40100',
-      country: 'Kenya'
-    },
-    createdAt: '2024-01-13T11:20:00Z',
-    updatedAt: '2024-01-14T16:30:00Z'
-  },
-  {
-    id: 4,
-    orderNumber: 'ORD-2024-004',
-    customer: { name: 'Emma Davis', email: 'emma@example.com', phone: '+254 700 456 789' },
-    items: [
-      { name: 'Cotton T-Shirt', quantity: 2, price: 1499.99 }
-    ],
-    status: 'delivered',
-    total: 2999.98,
-    subtotal: 2999.98,
-    tax: 0,
-    shipping: 0,
-    paymentMethod: 'Card',
-    trackingNumber: 'TRK987654321',
-    shippingAddress: {
-      line1: '321 Cedar Lane',
-      city: 'Eldoret',
-      state: 'Uasin Gishu County',
-      postalCode: '30100',
-      country: 'Kenya'
-    },
-    createdAt: '2024-01-12T14:15:00Z',
-    updatedAt: '2024-01-15T08:45:00Z'
-  },
-  {
-    id: 5,
-    orderNumber: 'ORD-2024-005',
-    customer: { name: 'Alex Brown', email: 'alex@example.com', phone: '+254 700 567 890' },
-    items: [
-      { name: 'Laptop Stand', quantity: 1, price: 3499.99 }
-    ],
-    status: 'cancelled',
-    total: 3499.99,
-    subtotal: 3499.99,
-    tax: 0,
-    shipping: 0,
-    paymentMethod: 'M-Pesa',
-    shippingAddress: {
-      line1: '654 Birch Street',
-      city: 'Nakuru',
-      state: 'Nakuru County',
-      postalCode: '20100',
-      country: 'Kenya'
-    },
-    createdAt: '2024-01-11T09:30:00Z',
-    updatedAt: '2024-01-11T10:15:00Z'
-  }
-];
+// Order interface
+interface Order {
+  id: number;
+  tracking_number: string;
+  status: string;
+  total: number;
+  subtotal: number;
+  tax: number;
+  shipping: number;
+  shipping_address_line1: string;
+  shipping_address_line2?: string;
+  shipping_city: string;
+  shipping_state: string;
+  shipping_postal_code: string;
+  shipping_country: string;
+  payment_method: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  users?: {
+    first_name?: string;
+    last_name?: string;
+    email: string;
+  };
+  order_items?: Array<{
+    id: number;
+    quantity: number;
+    price: number;
+    products: {
+      name: string;
+      image_url: string;
+    };
+  }>;
+}
 
 const AdminOrders = () => {
-  const [orders, setOrders] = useState(mockOrders);
-  const [loading, setLoading] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          users(first_name, last_name, email),
+          order_items(
+            id,
+            quantity,
+            price,
+            products(name, image_url)
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching orders:', error);
+        throw error;
+      }
+
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleStatusUpdate = async (orderId: number, newStatus: string) => {
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: newStatus, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      // Update local state
       setOrders(orders.map(order => 
         order.id === orderId 
-          ? { ...order, status: newStatus, updatedAt: new Date().toISOString() }
+          ? { ...order, status: newStatus, updated_at: new Date().toISOString() }
           : order
       ));
-      setLoading(false);
       
       // Show success message
       alert(`Order status updated to ${newStatus}!`);
-    }, 1000);
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      alert('Failed to update order status. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -201,9 +161,10 @@ const AdminOrders = () => {
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = 
-      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
+      order.tracking_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.users?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.users?.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.users?.email?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     
@@ -214,7 +175,7 @@ const AdminOrders = () => {
     const csvContent = [
       'Order Number,Customer,Email,Status,Total,Date',
       ...filteredOrders.map(order => 
-        `${order.orderNumber},${order.customer.name},${order.customer.email},${order.status},${order.total},${new Date(order.createdAt).toLocaleDateString()}`
+        `${order.tracking_number},"${order.users?.first_name || ''} ${order.users?.last_name || ''}",${order.users?.email || ''},${order.status},${order.total},${new Date(order.created_at).toLocaleDateString()}`
       )
     ].join('\n');
     
@@ -226,6 +187,14 @@ const AdminOrders = () => {
     a.click();
     window.URL.revokeObjectURL(url);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -341,25 +310,25 @@ const AdminOrders = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        {order.orderNumber}
+                        {order.tracking_number}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                        {order.order_items?.length || 0} item{(order.order_items?.length || 0) !== 1 ? 's' : ''}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        {order.customer.name}
+                        {order.users?.first_name || ''} {order.users?.last_name || ''}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {order.customer.email}
+                        {order.users?.email || 'No email'}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(order.createdAt).toLocaleDateString()}
+                    {new Date(order.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
@@ -419,7 +388,7 @@ const AdminOrders = () => {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">Order Details</h3>
-                  <p className="text-gray-600">{selectedOrder.orderNumber}</p>
+                  <p className="text-gray-600">{selectedOrder.tracking_number}</p>
                 </div>
                 <button
                   onClick={() => setSelectedOrder(null)}
@@ -439,9 +408,8 @@ const AdminOrders = () => {
                       Customer Information
                     </h4>
                     <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                      <p><strong>Name:</strong> {selectedOrder.customer.name}</p>
-                      <p><strong>Email:</strong> {selectedOrder.customer.email}</p>
-                      <p><strong>Phone:</strong> {selectedOrder.customer.phone}</p>
+                      <p><strong>Name:</strong> {selectedOrder.users?.first_name || ''} {selectedOrder.users?.last_name || ''}</p>
+                      <p><strong>Email:</strong> {selectedOrder.users?.email || 'No email'}</p>
                     </div>
                   </div>
 
@@ -452,11 +420,16 @@ const AdminOrders = () => {
                       Shipping Address
                     </h4>
                     <div className="bg-gray-50 p-4 rounded-lg">
-                      <p>{selectedOrder.shippingAddress.line1}</p>
-                      {selectedOrder.shippingAddress.line2 && <p>{selectedOrder.shippingAddress.line2}</p>}
-                      <p>{selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state}</p>
-                      <p>{selectedOrder.shippingAddress.postalCode}</p>
-                      <p>{selectedOrder.shippingAddress.country}</p>
+                      {selectedOrder.shipping_address_line1 ? (
+                        <div className="space-y-1">
+                          <p>{selectedOrder.shipping_address_line1}</p>
+                          {selectedOrder.shipping_address_line2 && <p>{selectedOrder.shipping_address_line2}</p>}
+                          <p>{selectedOrder.shipping_city}, {selectedOrder.shipping_state} {selectedOrder.shipping_postal_code}</p>
+                          {selectedOrder.shipping_country && <p>{selectedOrder.shipping_country}</p>}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500">No address provided</p>
+                      )}
                     </div>
                   </div>
 
@@ -467,14 +440,14 @@ const AdminOrders = () => {
                       Payment Information
                     </h4>
                     <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                      <p><strong>Method:</strong> {selectedOrder.paymentMethod}</p>
+                      <p><strong>Method:</strong> {selectedOrder.payment_method}</p>
                       <p><strong>Status:</strong> 
                         <span className={`ml-2 px-2 py-1 text-xs rounded-full ${getStatusColor(selectedOrder.status)}`}>
                           {selectedOrder.status}
                         </span>
                       </p>
-                      {selectedOrder.trackingNumber && (
-                        <p><strong>Tracking:</strong> {selectedOrder.trackingNumber}</p>
+                      {selectedOrder.tracking_number && (
+                        <p><strong>Tracking:</strong> {selectedOrder.tracking_number}</p>
                       )}
                     </div>
                   </div>
@@ -486,17 +459,17 @@ const AdminOrders = () => {
                   <div>
                     <h4 className="font-medium text-gray-900 mb-3">Order Items</h4>
                     <div className="space-y-3">
-                      {selectedOrder.items.map((item, index) => (
+                      {selectedOrder.order_items?.map((item, index) => (
                         <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
                           <div>
-                            <p className="font-medium text-gray-900">{item.name}</p>
+                            <p className="font-medium text-gray-900">{item.products.name}</p>
                             <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
                           </div>
                           <p className="font-semibold text-gray-900">
                             Ksh {(item.price * item.quantity).toLocaleString()}
                           </p>
                         </div>
-                      ))}
+                      )) || <p className="text-gray-500">No items found</p>}
                     </div>
                   </div>
 
@@ -533,7 +506,7 @@ const AdminOrders = () => {
                         <div className="w-3 h-3 bg-success rounded-full mr-3"></div>
                         <div>
                           <p className="text-sm font-medium">Order Placed</p>
-                          <p className="text-xs text-gray-500">{new Date(selectedOrder.createdAt).toLocaleString()}</p>
+                          <p className="text-xs text-gray-500">{new Date(selectedOrder.created_at).toLocaleString()}</p>
                         </div>
                       </div>
                       {selectedOrder.status !== 'pending' && (
@@ -541,7 +514,7 @@ const AdminOrders = () => {
                           <div className="w-3 h-3 bg-success rounded-full mr-3"></div>
                           <div>
                             <p className="text-sm font-medium">Status Updated</p>
-                            <p className="text-xs text-gray-500">{new Date(selectedOrder.updatedAt).toLocaleString()}</p>
+                            <p className="text-xs text-gray-500">{new Date(selectedOrder.updated_at).toLocaleString()}</p>
                           </div>
                         </div>
                       )}

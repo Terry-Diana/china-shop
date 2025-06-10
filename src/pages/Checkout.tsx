@@ -124,6 +124,9 @@ const Checkout = () => {
         .update({ tracking_number: orderNum })
         .eq('id', order.id);
 
+      // Store order number for cart page
+      sessionStorage.setItem('recentOrderNumber', orderNum);
+
       // Clear cart
       await clearCart();
 
@@ -173,9 +176,9 @@ const Checkout = () => {
             <Button
               variant="outline"
               fullWidth
-              onClick={() => navigate('/products')}
+              onClick={() => navigate('/cart')}
             >
-              Continue Shopping
+              Back to Cart
             </Button>
           </div>
         </motion.div>

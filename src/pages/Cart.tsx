@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, CheckCircle, Package } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../hooks/useAuth';
@@ -10,6 +10,7 @@ const Cart = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, removeFromCart, updateQuantity, total, itemCount } = useCart();
+  const [recentOrderNumber, setRecentOrderNumber] = useState<string | null>(null);
   
   useEffect(() => {
     document.title = 'Your Cart | China Square';
@@ -18,6 +19,14 @@ const Cart = () => {
     // Redirect to login if not authenticated
     if (!user) {
       navigate('/login', { state: { from: '/cart' } });
+    }
+
+    // Check for recent order in session storage
+    const orderNumber = sessionStorage.getItem('recentOrderNumber');
+    if (orderNumber) {
+      setRecentOrderNumber(orderNumber);
+      // Clear it after showing
+      sessionStorage.removeItem('recentOrderNumber');
     }
   }, [user, navigate]);
 
@@ -43,6 +52,12 @@ const Cart = () => {
       await updateQuantity(productId, newQuantity);
     } catch (error) {
       console.error('Error updating quantity:', error);
+    }
+  };
+
+  const handleViewOrder = () => {
+    if (recentOrderNumber) {
+      navigate(`/orders/${recentOrderNumber}`);
     }
   };
 
@@ -211,6 +226,35 @@ const Cart = () => {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+            {/* Order Success Message */}
+            {recentOrderNumber && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-8 p-6 bg-success-50 border border-success-200 rounded-lg"
+              >
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-success rounded-full flex items-center justify-center">
+                    <CheckCircle size={24} className="text-white" />
+                  </div>
+                </div>
+                <h2 className="text-xl font-bold text-success-dark mb-2">
+                  Your order has been placed successfully!
+                </h2>
+                <p className="text-success-dark mb-4">
+                  Order #{recentOrderNumber} has been confirmed and is being processed.
+                </p>
+                <Button
+                  variant="primary"
+                  onClick={handleViewOrder}
+                  icon={<Package size={18} />}
+                >
+                  View Your Order
+                </Button>
+              </motion.div>
+            )}
+
+            {/* Empty Cart Message */}
             <div className="mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
                 <ShoppingBag size={32} className="text-gray-400" />

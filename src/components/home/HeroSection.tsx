@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Button from "../ui/Button";
 import TouchOptimizedCarousel from "../ui/TouchOptimizedCarousel";
 import { slides } from "../../data/slides";
 
 const HeroSection = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
+  const [isLoading, setIsLoading] = useState(false);
   const [imagesLoaded, setImagesLoaded] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
@@ -19,6 +18,21 @@ const HeroSection = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    // Preload all images
+    slides.forEach((slide) => {
+      const img = new Image();
+      img.onload = () => {
+        setImagesLoaded(prev => ({ ...prev, [slide.id]: true }));
+      };
+      img.onerror = () => {
+        console.warn(`Failed to load image: ${slide.image}`);
+        setImagesLoaded(prev => ({ ...prev, [slide.id]: true }));
+      };
+      img.src = slide.image;
+    });
+  }, []);
+
   const goToNextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
   };
@@ -27,81 +41,25 @@ const HeroSection = () => {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
-  const handleImageLoad = (slideId: number) => {
-    setImagesLoaded(prev => ({ ...prev, [slideId]: true }));
-    
-    // Check if all images are loaded
-    const allLoaded = slides.every(slide => 
-      imagesLoaded[slide.id] || slide.id === slideId
-    );
-    
-    if (allLoaded) {
-      setIsLoading(false);
-    }
-  };
-
-  const handleImageError = (slideId: number) => {
-    setImageErrors(prev => ({ ...prev, [slideId]: true }));
-    setImagesLoaded(prev => ({ ...prev, [slideId]: true }));
-    
-    // Check if all images are processed (loaded or errored)
-    const allProcessed = slides.every(slide => 
-      imagesLoaded[slide.id] || imageErrors[slide.id] || slide.id === slideId
-    );
-    
-    if (allProcessed) {
-      setIsLoading(false);
-    }
-  };
-
   const getFallbackImage = () => {
     return "https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1";
   };
 
-  const getSlideImage = (slide: any) => {
-    return imageErrors[slide.id] ? getFallbackImage() : slide.image;
-  };
-
   return (
     <div className="relative w-full overflow-hidden aspect-[16/9] md:aspect-[21/9] lg:aspect-[25/9]">
-      {isLoading && (
-        <div className="absolute inset-0 bg-gray-200 flex items-center justify-center z-10">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-            <div className="text-gray-500">Loading hero content...</div>
-          </div>
-        </div>
-      )}
-
-      {/* Preload all images */}
-      <div className="hidden">
-        {slides.map((slide) => (
-          <img
-            key={slide.id}
-            src={slide.image}
-            alt=""
-            onLoad={() => handleImageLoad(slide.id)}
-            onError={() => handleImageError(slide.id)}
-          />
-        ))}
-      </div>
-
       {/* Mobile/Touch optimized carousel */}
       <div className="md:hidden h-full">
         <TouchOptimizedCarousel autoPlay={true} autoPlayInterval={5000}>
           {slides.map((slide) => (
             <div key={slide.id} className="relative h-full">
               <img
-                src={getSlideImage(slide)}
+                src={slide.image}
                 alt={slide.title}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = getFallbackImage();
+                }}
               />
-              {imageErrors[slide.id] && (
-                <div className="absolute top-4 right-4 bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs flex items-center">
-                  <AlertCircle size={12} className="mr-1" />
-                  Fallback image
-                </div>
-              )}
               <div className="absolute inset-0 flex flex-col justify-center px-6 bg-black/30">
                 <motion.div
                   initial={{ y: 20, opacity: 0 }}
@@ -142,16 +100,13 @@ const HeroSection = () => {
             className="absolute inset-0"
           >
             <img
-              src={getSlideImage(slides[currentSlide])}
+              src={slides[currentSlide].image}
               alt={slides[currentSlide].title}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = getFallbackImage();
+              }}
             />
-            {imageErrors[slides[currentSlide].id] && (
-              <div className="absolute top-4 right-4 bg-yellow-100 text-yellow-800 px-3 py-2 rounded text-sm flex items-center">
-                <AlertCircle size={16} className="mr-2" />
-                Using fallback image
-              </div>
-            )}
             <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-12 lg:px-24 bg-black/30">
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
