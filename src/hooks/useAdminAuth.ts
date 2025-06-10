@@ -80,15 +80,23 @@ export const useAdminAuth = create<AdminAuthState>()(
             }),
           });
 
+          // Clone the response so we can read it multiple times if needed
+          const responseClone = response.clone();
+
           let result;
           try {
             result = await response.json();
           } catch (jsonError) {
             console.error('❌ useAdminAuth: Failed to parse JSON response:', jsonError);
-            // Try to get response as text for better error reporting
-            const responseText = await response.text();
-            console.error('❌ useAdminAuth: Response text:', responseText);
-            throw new Error(`Server returned invalid response: ${response.status} ${response.statusText}`);
+            // Use the cloned response to get text for better error reporting
+            try {
+              const responseText = await responseClone.text();
+              console.error('❌ useAdminAuth: Response text:', responseText);
+              throw new Error(`Server returned invalid response: ${response.status} ${response.statusText}. Response: ${responseText}`);
+            } catch (textError) {
+              console.error('❌ useAdminAuth: Failed to read response as text:', textError);
+              throw new Error(`Server returned invalid response: ${response.status} ${response.statusText}`);
+            }
           }
 
           if (!response.ok) {
