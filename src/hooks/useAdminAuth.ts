@@ -65,8 +65,9 @@ export const useAdminAuth = create<AdminAuthState>()(
             throw new Error('Password must be at least 6 characters long');
           }
           
-          // Make request to server-side endpoint
-          const response = await fetch('/api/admin/register', {
+          // Make request to server-side endpoint using the configured API base URL
+          const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+          const response = await fetch(`${apiBaseUrl}/api/admin/register`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
