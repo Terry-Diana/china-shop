@@ -42,18 +42,27 @@ export const useRealTimeData = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const refetch = () => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+const refetch = () => {
+  setLoading(true);
+  // Simulate API call
+  setTimeout(() => {
+    // Simulate an error
+    const hasError = Math.random() < 0.1; // 10% chance
+
+    if (hasError) {
+      setError("Failed to fetch data");
+    } else {
       setStats(prev => ({
         ...prev,
         todayOrders: prev.todayOrders + 1,
         todayUsers: prev.todayUsers + 1
       }));
-      setLoading(false);
-    }, 1000);
-  };
+      setError(null);
+    }
+
+    setLoading(false);
+  }, 1000);
+};
 
   return { stats, loading, error, refetch };
 };
