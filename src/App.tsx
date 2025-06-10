@@ -15,6 +15,7 @@ const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 const Cart = lazy(() => import('./pages/Cart'));
 const Checkout = lazy(() => import('./pages/Checkout'));
 const OrderTracking = lazy(() => import('./pages/OrderTracking'));
+const MyOrders = lazy(() => import('./pages/MyOrders'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const StoreLocator = lazy(() => import('./pages/StoreLocator'));
@@ -40,7 +41,7 @@ const AdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
   }
   
   if (!admin) {
-    return <Navigate to="/admin/login\" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
   
   return children;
@@ -95,6 +96,7 @@ function App() {
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/orders/:orderNumber" element={<OrderTracking />} />
+              <Route path="/orders" element={<MyOrders />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/store-locator" element={<StoreLocator />} />

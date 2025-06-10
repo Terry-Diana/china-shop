@@ -46,6 +46,13 @@ const ActionButtons = () => {
       
       {user ? (
         <div className="hidden md:flex items-center space-x-4">
+          <Link
+            to="/orders"
+            className="p-2 text-white hover:text-accent-200"
+            aria-label="My Orders"
+          >
+            <Package size={24} />
+          </Link>
           <span className="text-white">Hi, {user.first_name || 'User'}</span>
           <button 
             onClick={handleLogout}
