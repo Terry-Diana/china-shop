@@ -228,7 +228,6 @@ const AdminDashboard = () => {
                 className="flex items-center justify-between p-3 bg-primary-50 rounded-md"
               >
                 console.log('Analytics Data:', analyticsData);
-
                 <div>
                   <p className="text-sm font-medium text-primary">{activity.action}</p>
                   <p className="text-xs text-gray-500">
