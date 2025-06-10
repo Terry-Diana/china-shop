@@ -40,7 +40,7 @@ const AdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
   }
   
   if (!admin) {
-    return <Navigate to="/admin/login" replace />;
+    return <Navigate to="/admin/login\" replace />;
   }
   
   return children;
