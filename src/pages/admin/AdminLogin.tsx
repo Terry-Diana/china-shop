@@ -6,9 +6,13 @@ import Logo from '../../components/ui/Logo';
 import Button from '../../components/ui/Button';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 
+// Environment variables
+const SUPER_ADMIN_EMAIL = import.meta.env.VITE_SUPER_ADMIN_EMAIL || 'superadmin@chinasquare.com';
+const SUPER_ADMIN_PASSWORD = import.meta.env.VITE_SUPER_ADMIN_PASSWORD || 'adminsuper@123';
+
 const AdminLogin = () => {
-  const [email, setEmail] = useState('superadmin@chinasquare.com');
-  const [password, setPassword] = useState('adminsuper@123');
+  const [email, setEmail] = useState(SUPER_ADMIN_EMAIL);
+  const [password, setPassword] = useState(SUPER_ADMIN_PASSWORD);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -44,40 +48,27 @@ const AdminLogin = () => {
     setSuccess('');
     
     try {
-      console.log('🔐 Attempting admin login with:', email);
-      
-      // Check for default super admin credentials
-      if (email.trim() === 'superadmin@chinasquare.com' && password === 'adminsuper@123') {
-        console.log('✅ Default super admin credentials verified');
-        
-        // Create default admin object
+      // Validate credentials
+      if (email.trim() === SUPER_ADMIN_EMAIL && password === SUPER_ADMIN_PASSWORD) {
         const defaultAdmin = {
           id: 'default-super-admin',
-          email: 'superadmin@chinasquare.com',
+          email: SUPER_ADMIN_EMAIL,
           name: 'Super Admin',
           role: 'super_admin' as const,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
         
-        // Set admin directly using the hook
         setAdmin(defaultAdmin);
-        
         setSuccess('Login successful! Redirecting to admin dashboard...');
         
-        // Small delay to show success message, then redirect
         setTimeout(() => {
           navigate('/admin');
         }, 1500);
-        
-        return;
+      } else {
+        throw new Error('Invalid credentials. Please use the default super admin credentials.');
       }
-      
-      // For any other credentials, show error
-      throw new Error('Invalid credentials. Please use the default super admin credentials: superadmin@chinasquare.com / adminsuper@123');
-      
     } catch (err: any) {
-      console.error('💥 Login error:', err);
       setError(err.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -85,8 +76,8 @@ const AdminLogin = () => {
   };
 
   const resetToDefaults = () => {
-    setEmail('superadmin@chinasquare.com');
-    setPassword('adminsuper@123');
+    setEmail(SUPER_ADMIN_EMAIL);
+    setPassword(SUPER_ADMIN_PASSWORD);
     setError('');
     setSuccess('');
   };
@@ -139,8 +130,8 @@ const AdminLogin = () => {
             <div className="text-sm text-blue-800">
               <p className="font-medium mb-2">Default Super Admin Credentials:</p>
               <div className="bg-blue-100 p-3 rounded text-xs font-mono mb-3">
-                <div className="mb-1"><strong>Email:</strong> superadmin@chinasquare.com</div>
-                <div><strong>Password:</strong> adminsuper@123</div>
+                <div className="mb-1"><strong>Email:</strong> {SUPER_ADMIN_EMAIL}</div>
+                <div><strong>Password:</strong> {SUPER_ADMIN_PASSWORD}</div>
               </div>
               <button
                 onClick={resetToDefaults}
