@@ -54,7 +54,7 @@ export const useAdminAuth = create<AdminAuthState>()(
             throw new Error('Only super admins can register new admins');
           }
           
-          console.log('👤 useAdminAuth: Registering new admin:', email);
+          console.log('👤 useAdminAuth: Registering new admin via server:', email);
           
           // Validate inputs
           if (!email.trim() || !password || !name.trim()) {
@@ -65,53 +65,26 @@ export const useAdminAuth = create<AdminAuthState>()(
             throw new Error('Password must be at least 6 characters long');
           }
           
-          // Create auth user using admin API (bypasses email confirmation)
-          const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: email.trim(),
-            password: password,
-            email_confirm: true, // Auto-confirm email
-            user_metadata: { 
-              name: name.trim(),
-              role: role
-            }
-          });
-
-          if (authError) {
-            console.error('❌ useAdminAuth: Registration auth error:', authError);
-            if (authError.message.includes('User already registered')) {
-              throw new Error('An account with this email already exists.');
-            }
-            throw new Error(`Failed to create user account: ${authError.message}`);
-          }
-
-          if (!authData.user) {
-            throw new Error('Failed to create user account');
-          }
-
-          console.log('✅ useAdminAuth: Auth user created, creating admin record');
-
-          // Create admin record
-          const { error: adminError } = await supabase
-            .from('admins')
-            .insert({
-              id: authData.user.id,
+          // Make request to server-side endpoint
+          const response = await fetch('/api/admin/register', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
               email: email.trim(),
+              password: password,
               name: name.trim(),
               role: role,
-            });
+              currentAdminId: currentAdmin.id
+            }),
+          });
 
-          if (adminError) {
-            console.error('❌ useAdminAuth: Admin record creation error:', adminError);
-            
-            // Try to clean up the auth user
-            try {
-              await supabase.auth.admin.deleteUser(authData.user.id);
-              console.log('🧹 useAdminAuth: Cleaned up auth user after admin record failure');
-            } catch (cleanupError) {
-              console.error('💥 useAdminAuth: Failed to cleanup auth user:', cleanupError);
-            }
-            
-            throw new Error(`Failed to create admin record: ${adminError.message}`);
+          const result = await response.json();
+
+          if (!response.ok) {
+            console.error('❌ useAdminAuth: Server registration error:', result);
+            throw new Error(result.error || 'Failed to register admin');
           }
 
           console.log('✅ useAdminAuth: Admin registration successful');
