@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ShoppingCart, User, Heart, LogOut } from 'lucide-react';
+import { ShoppingCart, User, Heart, LogOut, Package } from 'lucide-react';
 import Button from '../../ui/Button';
 import { useAuth } from '../../../hooks/useAuth';
 import { useCart } from '../../../contexts/CartContext';
