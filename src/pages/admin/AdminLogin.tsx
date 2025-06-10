@@ -5,6 +5,7 @@ import { Mail, Lock, Eye, EyeOff, Shield, AlertCircle, CheckCircle } from 'lucid
 import Logo from '../../components/ui/Logo';
 import Button from '../../components/ui/Button';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { supabase } from '../../lib/supabase';
 
 // Environment variables
 const SUPER_ADMIN_EMAIL = import.meta.env.VITE_SUPER_ADMIN_EMAIL || 'superadmin@chinasquare.com';
@@ -48,8 +49,11 @@ const AdminLogin = () => {
     setSuccess('');
     
     try {
-      // Validate credentials
+      console.log('🔐 AdminLogin: Attempting login for:', email);
+      
+      // Check for default super admin credentials first
       if (email.trim() === SUPER_ADMIN_EMAIL && password === SUPER_ADMIN_PASSWORD) {
+        console.log('✅ AdminLogin: Default super admin login');
         const defaultAdmin = {
           id: 'default-super-admin',
           email: SUPER_ADMIN_EMAIL,
@@ -65,10 +69,63 @@ const AdminLogin = () => {
         setTimeout(() => {
           navigate('/admin');
         }, 1500);
-      } else {
-        throw new Error('Invalid credentials. Please use the default super admin credentials.');
+        return;
       }
+
+      // Try database admin authentication
+      console.log('🔍 AdminLogin: Attempting database admin authentication');
+      
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+      
+      if (authError) {
+        console.error('❌ AdminLogin: Supabase auth error:', authError);
+        if (authError.message.includes('Invalid login credentials')) {
+          throw new Error('Invalid email or password');
+        }
+        throw authError;
+      }
+      
+      if (!authData.user) {
+        throw new Error('Authentication failed - no user data');
+      }
+
+      console.log('✅ AdminLogin: Auth successful, verifying admin status');
+      
+      // Check if user is admin
+      const { data: adminData, error: adminError } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+        
+      if (adminError) {
+        console.error('❌ AdminLogin: Admin lookup error:', adminError);
+        await supabase.auth.signOut();
+        
+        if (adminError.code === 'PGRST116') {
+          throw new Error('Access denied. This account does not have admin privileges.');
+        }
+        throw new Error('Error verifying admin status. Please try again.');
+      }
+      
+      if (!adminData) {
+        await supabase.auth.signOut();
+        throw new Error('Access denied. This account does not have admin privileges.');
+      }
+      
+      console.log('✅ AdminLogin: Admin verification successful');
+      setAdmin(adminData);
+      setSuccess('Login successful! Redirecting to admin dashboard...');
+      
+      setTimeout(() => {
+        navigate('/admin');
+      }, 1500);
+      
     } catch (err: any) {
+      console.error('💥 AdminLogin: Login error:', err);
       setError(err.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -140,6 +197,9 @@ const AdminLogin = () => {
               >
                 Use these credentials
               </button>
+              <p className="text-xs text-blue-600 mt-2">
+                Or use your registered admin account credentials
+              </p>
             </div>
           </div>
 
@@ -161,7 +221,7 @@ const AdminLogin = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
-                  placeholder="superadmin@chinasquare.com"
+                  placeholder="admin@chinasquare.com"
                   disabled={isLoading}
                 />
               </div>
@@ -230,7 +290,7 @@ const AdminLogin = () => {
                 This is a secure area. All access attempts are logged and monitored.
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Once logged in, you can register additional admin users from the admin panel.
+                Super admins can register additional admin users from the admin panel.
               </p>
             </div>
           </div>
