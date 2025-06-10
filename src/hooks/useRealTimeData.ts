@@ -1,70 +1,59 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { adminService } from '../services/adminService';
-import { RealTimeStats } from '../types/admin';
+
+export interface RealTimeStats {
+  todayOrders: number;
+  todayUsers: number;
+  todayRevenue: number;
+  recentActivity: Array<{
+    id: string;
+    action: string;
+    user: string;
+    time: string;
+  }>;
+}
 
 export const useRealTimeData = () => {
-  const [stats, setStats] = useState<RealTimeStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<RealTimeStats>({
+    todayOrders: 156,
+    todayUsers: 89,
+    todayRevenue: 247500,
+    recentActivity: [
+      { id: '1', action: 'New order placed', user: 'John Doe', time: '2 min ago' },
+      { id: '2', action: 'User registered', user: 'Sarah Johnson', time: '5 min ago' },
+      { id: '3', action: 'Product updated', user: 'Admin', time: '12 min ago' },
+      { id: '4', action: 'Order shipped', user: 'System', time: '18 min ago' },
+      { id: '5', action: 'Payment received', user: 'Mike Wilson', time: '25 min ago' }
+    ]
+  });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = async () => {
-    try {
-      setLoading(true);
-      const data = await adminService.getRealTimeStats();
-      setStats(data);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message);
-      console.error('Error fetching real-time stats:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Simulate real-time updates
   useEffect(() => {
-    fetchStats();
+    const interval = setInterval(() => {
+      setStats(prev => ({
+        ...prev,
+        todayOrders: prev.todayOrders + Math.floor(Math.random() * 3),
+        todayUsers: prev.todayUsers + Math.floor(Math.random() * 2),
+        todayRevenue: prev.todayRevenue + Math.floor(Math.random() * 5000)
+      }));
+    }, 30000); // Update every 30 seconds
 
-    // Set up real-time subscriptions
-    const ordersSubscription = supabase
-      .channel('admin_orders')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-        },
-        () => {
-          fetchStats();
-        }
-      )
-      .subscribe();
-
-    const usersSubscription = supabase
-      .channel('admin_users')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'users',
-        },
-        () => {
-          fetchStats();
-        }
-      )
-      .subscribe();
-
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchStats, 30000);
-
-    return () => {
-      ordersSubscription.unsubscribe();
-      usersSubscription.unsubscribe();
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, []);
 
-  return { stats, loading, error, refetch: fetchStats };
+  const refetch = () => {
+    setLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      setStats(prev => ({
+        ...prev,
+        todayOrders: prev.todayOrders + 1,
+        todayUsers: prev.todayUsers + 1
+      }));
+      setLoading(false);
+    }, 1000);
+  };
+
+  return { stats, loading, error, refetch };
 };

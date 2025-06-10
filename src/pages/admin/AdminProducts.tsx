@@ -12,6 +12,10 @@ import {
   Trash2,
   Image as ImageIcon,
   X,
+  Eye,
+  Package,
+  AlertTriangle,
+  CheckCircle
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { mockProducts } from '../../data/mockProducts';
@@ -23,15 +27,26 @@ const AdminProducts = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
+    setLoading(true);
+    
     Papa.parse(file, {
       complete: (results) => {
         console.log('Parsed CSV:', results.data);
+        setLoading(false);
         setShowUploadModal(false);
+        // Show success message
+        alert(`Successfully imported ${results.data.length} products!`);
       },
       header: true,
+      error: (error) => {
+        console.error('CSV parsing error:', error);
+        setLoading(false);
+        alert('Error parsing CSV file. Please check the format.');
+      }
     });
   }, []);
 
@@ -54,18 +69,47 @@ const AdminProducts = () => {
 
   const handleProductSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle product save logic
-    setShowProductForm(false);
+    setLoading(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      setLoading(false);
+      setShowProductForm(false);
+      alert(selectedProduct ? 'Product updated successfully!' : 'Product created successfully!');
+    }, 1500);
+  };
+
+  const handleDeleteProduct = (productId: number) => {
+    if (confirm('Are you sure you want to delete this product?')) {
+      setProducts(products.filter(p => p.id !== productId));
+      alert('Product deleted successfully!');
+    }
+  };
+
+  const exportProducts = () => {
+    const csvContent = [
+      Object.keys(products[0]).join(','),
+      ...products.map(product => Object.values(product).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'products.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Products</h1>
-          <p className="text-gray-600">Manage your product catalog</p>
+          <h1 className="text-2xl font-bold text-gray-900">Products Management</h1>
+          <p className="text-gray-600">Manage your product catalog and inventory</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             icon={<Upload size={18} />}
@@ -76,6 +120,7 @@ const AdminProducts = () => {
           <Button
             variant="outline"
             icon={<Download size={18} />}
+            onClick={exportProducts}
           >
             Export
           </Button>
@@ -92,15 +137,43 @@ const AdminProducts = () => {
         </div>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {[
+          { title: 'Total Products', value: products.length, icon: <Package size={20} />, color: 'primary' },
+          { title: 'In Stock', value: products.filter(p => p.stock > 0).length, icon: <CheckCircle size={20} />, color: 'success' },
+          { title: 'Low Stock', value: products.filter(p => p.stock <= 10 && p.stock > 0).length, icon: <AlertTriangle size={20} />, color: 'warning' },
+          { title: 'Out of Stock', value: products.filter(p => p.stock === 0).length, icon: <X size={20} />, color: 'error' }
+        ].map((stat, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="bg-white rounded-lg shadow-sm p-6"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              </div>
+              <div className={`p-3 bg-${stat.color}-50 rounded-lg`}>
+                <div className={`text-${stat.color}`}>{stat.icon}</div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-grow max-w-md">
+      <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-grow">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <input
                 type="text"
-                placeholder="Search products..."
+                placeholder="Search products by name or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -128,7 +201,7 @@ const AdminProducts = () => {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50">
+              <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Product
                 </th>
@@ -155,13 +228,13 @@ const AdminProducts = () => {
                   key={product.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+                  className="hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0">
+                      <div className="h-12 w-12 flex-shrink-0">
                         <img
-                          className="h-10 w-10 rounded object-cover"
+                          className="h-12 w-12 rounded-lg object-cover"
                           src={product.image}
                           alt={product.name}
                         />
@@ -171,7 +244,7 @@ const AdminProducts = () => {
                           {product.name}
                         </div>
                         <div className="text-sm text-gray-500">
-                          SKU: {product.id}
+                          SKU: #{product.id.toString().padStart(6, '0')}
                         </div>
                       </div>
                     </div>
@@ -182,15 +255,21 @@ const AdminProducts = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">${product.price}</div>
+                    <div className="text-sm text-gray-900 font-medium">Ksh {product.price.toFixed(2)}</div>
                     {product.originalPrice > product.price && (
                       <div className="text-xs text-gray-500 line-through">
-                        ${product.originalPrice}
+                        Ksh {product.originalPrice.toFixed(2)}
                       </div>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{product.stock}</div>
+                    <div className="flex items-center">
+                      <div className="text-sm text-gray-900 font-medium mr-2">{product.stock}</div>
+                      <div className={`w-2 h-2 rounded-full ${
+                        product.stock > 10 ? 'bg-success' : 
+                        product.stock > 0 ? 'bg-warning' : 'bg-error'
+                      }`}></div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -204,127 +283,216 @@ const AdminProducts = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setShowProductForm(true);
-                      }}
-                      className="text-primary hover:text-primary-dark mr-3"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    <button className="text-error hover:text-error-dark">
-                      <Trash2 size={18} />
-                    </button>
+                    <div className="flex items-center justify-end space-x-2">
+                      <button
+                        className="text-gray-400 hover:text-primary transition-colors"
+                        title="View Product"
+                      >
+                        <Eye size={18} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setShowProductForm(true);
+                        }}
+                        className="text-gray-400 hover:text-primary transition-colors"
+                        title="Edit Product"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="text-gray-400 hover:text-error transition-colors"
+                        title="Delete Product"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </motion.tr>
               ))}
             </tbody>
           </table>
         </div>
+        
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-12">
+            <Package size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+            <p className="text-gray-600">Try adjusting your search or filter criteria.</p>
+          </div>
+        )}
       </div>
 
       {/* Product Form Modal */}
       {showProductForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4"
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
           >
             <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">
                   {selectedProduct ? 'Edit Product' : 'Add New Product'}
                 </h3>
                 <button
                   onClick={() => setShowProductForm(false)}
                   className="text-gray-400 hover:text-gray-500"
+                  disabled={loading}
                 >
                   <X size={24} />
                 </button>
               </div>
-              <form onSubmit={handleProductSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              
+              <form onSubmit={handleProductSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Product Name
+                      Product Name *
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="Enter product name"
+                      defaultValue={selectedProduct?.name}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Category
+                      Brand *
                     </label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                      {categories.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Enter brand name"
+                      defaultValue={selectedProduct?.brand}
+                    />
                   </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
+                    Description *
                   </label>
                   <textarea
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    required
                     rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Enter product description"
+                    defaultValue={selectedProduct?.description}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Price
+                      Price (Ksh) *
                     </label>
                     <input
                       type="number"
                       step="0.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="0.00"
+                      defaultValue={selectedProduct?.price}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Stock
+                      Original Price (Ksh)
                     </label>
                     <input
                       type="number"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      step="0.01"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="0.00"
+                      defaultValue={selectedProduct?.originalPrice}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Stock Quantity *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="0"
+                      defaultValue={selectedProduct?.stock}
                     />
                   </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Images
+                    Category *
                   </label>
-                  <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                    <div className="mx-auto w-12 h-12 mb-4 text-gray-400">
-                      <ImageIcon size={48} />
-                    </div>
-                    <p className="text-gray-600">
+                  <select 
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    defaultValue={selectedProduct?.category}
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Product Images
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors">
+                    <ImageIcon size={48} className="mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-600 mb-2">
                       Drag & drop product images here, or click to select
                     </p>
-                    <p className="text-sm text-gray-500 mt-2">
+                    <p className="text-sm text-gray-500">
                       Maximum 5 images, PNG or JPG, max 2MB each
                     </p>
+                    <input type="file" multiple accept="image/*" className="hidden" />
                   </div>
                 </div>
-                <div className="flex justify-end gap-2 pt-4">
+
+                <div className="flex items-center space-x-4">
+                  <label className="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                      defaultChecked={selectedProduct?.isNew}
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Mark as New</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                      defaultChecked={selectedProduct?.bestSeller}
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Best Seller</span>
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-6 border-t">
                   <Button
                     variant="outline"
                     onClick={() => setShowProductForm(false)}
+                    disabled={loading}
                   >
                     Cancel
                   </Button>
-                  <Button variant="primary" type="submit">
-                    {selectedProduct ? 'Update Product' : 'Add Product'}
+                  <Button 
+                    variant="primary" 
+                    type="submit"
+                    disabled={loading}
+                  >
+                    {loading ? 'Saving...' : (selectedProduct ? 'Update Product' : 'Create Product')}
                   </Button>
                 </div>
               </form>
@@ -335,51 +503,70 @@ const AdminProducts = () => {
 
       {/* CSV Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+            className="bg-white rounded-lg shadow-xl max-w-md w-full"
           >
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Import Products
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Import Products
+                </h3>
+                <button
+                  onClick={() => setShowUploadModal(false)}
+                  className="text-gray-400 hover:text-gray-500"
+                  disabled={loading}
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              
               <div
                 {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-8 text-center ${
-                  isDragActive ? 'border-primary bg-primary-50' : 'border-gray-300'
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                  isDragActive ? 'border-primary bg-primary-50' : 'border-gray-300 hover:border-primary'
                 }`}
               >
                 <input {...getInputProps()} />
-                <div className="mx-auto w-12 h-12 mb-4 text-gray-400">
-                  <ImageIcon size={48} />
-                </div>
+                <Upload size={48} className="mx-auto text-gray-400 mb-4" />
                 {isDragActive ? (
-                  <p className="text-primary">Drop the CSV file here</p>
+                  <p className="text-primary font-medium">Drop the CSV file here</p>
                 ) : (
                   <>
-                    <p className="text-gray-600">
+                    <p className="text-gray-600 mb-2">
                       Drag & drop a CSV file here, or click to select
                     </p>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Supported format: .csv
+                    <p className="text-sm text-gray-500">
+                      Supported format: .csv (max 10MB)
                     </p>
                   </>
                 )}
               </div>
-              <div className="mt-6 flex justify-end gap-2">
+              
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <h4 className="text-sm font-medium text-blue-900 mb-2">CSV Format Requirements:</h4>
+                <ul className="text-xs text-blue-800 space-y-1">
+                  <li>• Include headers: name, price, stock, category, brand</li>
+                  <li>• Use comma-separated values</li>
+                  <li>• Ensure all required fields are filled</li>
+                </ul>
+              </div>
+              
+              <div className="mt-6 flex justify-end gap-3">
                 <Button
                   variant="outline"
                   onClick={() => setShowUploadModal(false)}
+                  disabled={loading}
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="primary"
-                  onClick={() => setShowUploadModal(false)}
+                  disabled={loading}
                 >
-                  Upload
+                  {loading ? 'Processing...' : 'Upload'}
                 </Button>
               </div>
             </div>
