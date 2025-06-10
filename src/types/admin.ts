@@ -132,16 +132,19 @@ export interface AnalyticsData {
   };
 }
 
+export interface RecentActivityItem {
+  id: number;
+  total: number;
+  action: string;
+  created_at: string;
+  users?: {
+    first_name?: string;
+    last_name?: string;
+  };
+}
+
 export interface RealTimeStats {
   todayOrders: number;
   todayUsers: number;
-  recentActivity: Array<{
-    id: number;
-    total: number;
-    created_at: string;
-    users?: {
-      first_name?: string;
-      last_name?: string;
-    };
-  }>;
+  recentActivity: RecentActivityItem[];
 }
