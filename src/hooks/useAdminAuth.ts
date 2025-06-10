@@ -80,7 +80,16 @@ export const useAdminAuth = create<AdminAuthState>()(
             }),
           });
 
-          const result = await response.json();
+          let result;
+          try {
+            result = await response.json();
+          } catch (jsonError) {
+            console.error('❌ useAdminAuth: Failed to parse JSON response:', jsonError);
+            // Try to get response as text for better error reporting
+            const responseText = await response.text();
+            console.error('❌ useAdminAuth: Response text:', responseText);
+            throw new Error(`Server returned invalid response: ${response.status} ${response.statusText}`);
+          }
 
           if (!response.ok) {
             console.error('❌ useAdminAuth: Server registration error:', result);
