@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   AlertTriangle,
@@ -10,23 +10,119 @@ import {
   Filter,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
-import { mockProducts } from '../../data/mockProducts';
+import { supabase } from '../../lib/supabase';
+
+interface Product {
+  id: number;
+  name: string;
+  brand: string;
+  category_id: number | null;
+  stock: number;
+  price: number;
+  image_url: string;
+  created_at: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+}
 
 const AdminInventory = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [stockFilter, setStockFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const categories = Array.from(new Set(mockProducts.map(p => p.category)));
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const filteredProducts = mockProducts.filter(product => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [
+        { data: productsData, error: productsError },
+        { data: categoriesData, error: categoriesError }
+      ] = await Promise.all([
+        supabase.from('products').select('*').order('created_at', { ascending: false }),
+        supabase.from('categories').select('id, name').order('name')
+      ]);
+
+      if (productsError) throw productsError;
+      if (categoriesError) throw categoriesError;
+
+      setProducts(productsData || []);
+      setCategories(categoriesData || []);
+    } catch (err: any) {
+      console.error('Error fetching data:', err);
+      setError(err.message || 'Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateStock = async (productId: number, newStock: number) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ stock: newStock })
+        .eq('id', productId);
+
+      if (error) throw error;
+
+      // Update local state
+      setProducts(products.map(p => 
+        p.id === productId ? { ...p, stock: newStock } : p
+      ));
+
+      alert('Stock updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating stock:', error);
+      alert('Failed to update stock. Please try again.');
+    }
+  };
+
+  const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || product.category_id?.toString() === selectedCategory;
     const matchesStock = stockFilter === 'all' ||
-      (stockFilter === 'low' && product.stock <= 10) ||
+      (stockFilter === 'low' && product.stock <= 10 && product.stock > 0) ||
       (stockFilter === 'out' && product.stock === 0);
     return matchesSearch && matchesCategory && matchesStock;
   });
+
+  const stats = {
+    totalProducts: products.length,
+    inStock: products.filter(p => p.stock > 0).length,
+    lowStock: products.filter(p => p.stock <= 10 && p.stock > 0).length,
+    outOfStock: products.filter(p => p.stock === 0).length,
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <p className="text-lg font-semibold text-gray-900 mb-2">Failed to load inventory data</p>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <Button onClick={fetchData} variant="primary">
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -38,8 +134,9 @@ const AdminInventory = () => {
         <Button
           variant="primary"
           icon={<RefreshCw size={18} />}
+          onClick={fetchData}
         >
-          Update Stock
+          Refresh Data
         </Button>
       </div>
 
@@ -48,25 +145,25 @@ const AdminInventory = () => {
         {[
           {
             title: 'Total Products',
-            value: mockProducts.length,
+            value: stats.totalProducts,
             icon: <Package size={24} />,
             color: 'primary',
           },
           {
             title: 'Low Stock Items',
-            value: mockProducts.filter(p => p.stock <= 10 && p.stock > 0).length,
+            value: stats.lowStock,
             icon: <AlertTriangle size={24} />,
             color: 'warning',
           },
           {
             title: 'Out of Stock',
-            value: mockProducts.filter(p => p.stock === 0).length,
+            value: stats.outOfStock,
             icon: <TrendingDown size={24} />,
             color: 'error',
           },
           {
             title: 'Well Stocked',
-            value: mockProducts.filter(p => p.stock > 10).length,
+            value: stats.inStock,
             icon: <TrendingUp size={24} />,
             color: 'success',
           },
@@ -113,7 +210,7 @@ const AdminInventory = () => {
             >
               <option value="all">All Categories</option>
               {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
+                <option key={category.id} value={category.id.toString()}>{category.name}</option>
               ))}
             </select>
             <select
@@ -156,75 +253,114 @@ const AdminInventory = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
-                <motion.tr
-                  key={product.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0">
-                        <img
-                          className="h-10 w-10 rounded object-cover"
-                          src={product.image}
-                          alt={product.name}
-                        />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {product.name}
+              {filteredProducts.map((product) => {
+                const category = categories.find(c => c.id === product.category_id);
+                return (
+                  <motion.tr
+                    key={product.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 flex-shrink-0">
+                          <img
+                            className="h-10 w-10 rounded object-cover"
+                            src={product.image_url || 'https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg'}
+                            alt={product.name}
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg';
+                            }}
+                          />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {product.name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {product.brand}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    #{product.id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-50 text-primary">
-                      {product.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-grow h-2 bg-gray-200 rounded-full">
-                        <div
-                          className={`h-2 rounded-full ${
-                            product.stock > 10
-                              ? 'bg-success'
-                              : product.stock > 0
-                              ? 'bg-warning'
-                              : 'bg-error'
-                          }`}
-                          style={{ width: `${Math.min((product.stock / 20) * 100, 100)}%` }}
-                        />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      #{product.id.toString().padStart(6, '0')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-50 text-primary">
+                        {category?.name || 'Uncategorized'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-grow h-2 bg-gray-200 rounded-full mr-2 w-20">
+                          <div
+                            className={`h-2 rounded-full ${
+                              product.stock > 10
+                                ? 'bg-success'
+                                : product.stock > 0
+                                ? 'bg-warning'
+                                : 'bg-error'
+                            }`}
+                            style={{ width: `${Math.min((product.stock / 20) * 100, 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-sm text-gray-600 min-w-[3rem]">{product.stock}</span>
                       </div>
-                      <span className="ml-2 text-sm text-gray-600">{product.stock}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      product.stock > 10
-                        ? 'bg-success-50 text-success'
-                        : product.stock > 0
-                        ? 'bg-warning-50 text-warning'
-                        : 'bg-error-50 text-error'
-                    }`}>
-                      {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <Button variant="outline" size="sm">
-                      Update Stock
-                    </Button>
-                  </td>
-                </motion.tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        product.stock > 10
+                          ? 'bg-success-50 text-success'
+                          : product.stock > 0
+                          ? 'bg-warning-50 text-warning'
+                          : 'bg-error-50 text-error'
+                      }`}>
+                        {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-2">
+                        <input
+                          type="number"
+                          min="0"
+                          value={product.stock}
+                          onChange={(e) => {
+                            const newStock = parseInt(e.target.value) || 0;
+                            updateStock(product.id, newStock);
+                          }}
+                          className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            const newStock = prompt('Enter new stock quantity:', product.stock.toString());
+                            if (newStock !== null) {
+                              const stockNumber = parseInt(newStock) || 0;
+                              updateStock(product.id, stockNumber);
+                            }
+                          }}
+                        >
+                          Update
+                        </Button>
+                      </div>
+                    </td>
+                  </motion.tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-12">
+            <Package size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+            <p className="text-gray-600">Try adjusting your search or filter criteria.</p>
+          </div>
+        )}
       </div>
     </div>
   );

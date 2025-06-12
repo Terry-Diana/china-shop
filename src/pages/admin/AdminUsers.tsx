@@ -15,118 +15,107 @@ import {
   Shield
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { supabase } from '../../lib/supabase';
 
-// Mock users data
-const mockUsers = [
-  {
-    id: '1',
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
-    phone: '+254 700 123 456',
-    addressLine1: '123 Main Street',
-    addressLine2: 'Apt 4B',
-    city: 'Nairobi',
-    state: 'Nairobi County',
-    postalCode: '00100',
-    country: 'Kenya',
-    createdAt: '2024-01-15T10:30:00Z',
-    updatedAt: '2024-01-15T10:30:00Z',
-    lastLogin: '2024-01-20T14:22:00Z',
-    orderCount: 5,
-    totalSpent: 45750.50
-  },
-  {
-    id: '2',
-    firstName: 'Sarah',
-    lastName: 'Johnson',
-    email: 'sarah.johnson@example.com',
-    phone: '+254 700 234 567',
-    addressLine1: '456 Oak Avenue',
-    city: 'Mombasa',
-    state: 'Mombasa County',
-    postalCode: '80100',
-    country: 'Kenya',
-    createdAt: '2024-01-10T15:45:00Z',
-    updatedAt: '2024-01-18T09:20:00Z',
-    lastLogin: '2024-01-19T11:15:00Z',
-    orderCount: 3,
-    totalSpent: 23400.75
-  },
-  {
-    id: '3',
-    firstName: 'Mike',
-    lastName: 'Wilson',
-    email: 'mike.wilson@example.com',
-    phone: '+254 700 345 678',
-    addressLine1: '789 Pine Road',
-    city: 'Kisumu',
-    state: 'Kisumu County',
-    postalCode: '40100',
-    country: 'Kenya',
-    createdAt: '2024-01-08T11:20:00Z',
-    updatedAt: '2024-01-17T16:30:00Z',
-    lastLogin: '2024-01-18T08:45:00Z',
-    orderCount: 8,
-    totalSpent: 67890.25
-  },
-  {
-    id: '4',
-    firstName: 'Emma',
-    lastName: 'Davis',
-    email: 'emma.davis@example.com',
-    phone: '+254 700 456 789',
-    addressLine1: '321 Cedar Lane',
-    city: 'Eldoret',
-    state: 'Uasin Gishu County',
-    postalCode: '30100',
-    country: 'Kenya',
-    createdAt: '2024-01-05T14:15:00Z',
-    updatedAt: '2024-01-16T08:45:00Z',
-    lastLogin: '2024-01-17T19:30:00Z',
-    orderCount: 12,
-    totalSpent: 89450.00
-  },
-  {
-    id: '5',
-    firstName: 'Alex',
-    lastName: 'Brown',
-    email: 'alex.brown@example.com',
-    phone: '+254 700 567 890',
-    addressLine1: '654 Birch Street',
-    city: 'Nakuru',
-    state: 'Nakuru County',
-    postalCode: '20100',
-    country: 'Kenya',
-    createdAt: '2024-01-03T09:30:00Z',
-    updatedAt: '2024-01-15T10:15:00Z',
-    lastLogin: '2024-01-16T13:20:00Z',
-    orderCount: 2,
-    totalSpent: 15600.50
-  }
-];
+interface User {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  email: string;
+  phone?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  created_at: string;
+  updated_at: string;
+  orderCount?: number;
+  totalSpent?: number;
+}
 
 const AdminUsers = () => {
-  const [users, setUsers] = useState(mockUsers);
-  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch users with their order statistics
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (usersError) throw usersError;
+
+      // For each user, get their order count and total spent
+      const usersWithStats = await Promise.all(
+        (usersData || []).map(async (user) => {
+          const { data: orders, error: ordersError } = await supabase
+            .from('orders')
+            .select('total')
+            .eq('user_id', user.id);
+
+          if (ordersError) {
+            console.error('Error fetching orders for user:', user.id, ordersError);
+            return {
+              ...user,
+              orderCount: 0,
+              totalSpent: 0
+            };
+          }
+
+          const orderCount = orders?.length || 0;
+          const totalSpent = orders?.reduce((sum, order) => sum + order.total, 0) || 0;
+
+          return {
+            ...user,
+            orderCount,
+            totalSpent
+          };
+        })
+      );
+
+      setUsers(usersWithStats);
+    } catch (err: any) {
+      console.error('Error fetching users:', err);
+      setError(err.message || 'Failed to fetch users');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredUsers = users.filter(user => {
     const searchLower = searchQuery.toLowerCase();
     return (
       user.email.toLowerCase().includes(searchLower) ||
-      user.firstName?.toLowerCase().includes(searchLower) ||
-      user.lastName?.toLowerCase().includes(searchLower) ||
-      `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchLower)
+      user.first_name?.toLowerCase().includes(searchLower) ||
+      user.last_name?.toLowerCase().includes(searchLower) ||
+      `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase().includes(searchLower)
     );
   });
 
   const exportUsers = () => {
+    if (filteredUsers.length === 0) {
+      alert('No users to export');
+      return;
+    }
+
     const csvContent = [
       'Name,Email,Phone,City,Orders,Total Spent,Join Date',
       ...filteredUsers.map(user => 
-        `"${user.firstName} ${user.lastName}",${user.email},${user.phone || 'N/A'},${user.city || 'N/A'},${user.orderCount},${user.totalSpent},${new Date(user.createdAt).toLocaleDateString()}`
+        `"${user.first_name || ''} ${user.last_name || ''}",${user.email},${user.phone || 'N/A'},${user.city || 'N/A'},${user.orderCount || 0},${user.totalSpent || 0},${new Date(user.created_at).toLocaleDateString()}`
       )
     ].join('\n');
     
@@ -144,6 +133,42 @@ const AdminUsers = () => {
     if (totalSpent >= 25000) return { tier: 'Silver', color: 'text-gray-600 bg-gray-50' };
     return { tier: 'Bronze', color: 'text-amber-600 bg-amber-50' };
   };
+
+  const getStats = () => {
+    const totalUsers = users.length;
+    const newThisMonth = users.filter(user => {
+      const userDate = new Date(user.created_at);
+      const now = new Date();
+      return userDate.getMonth() === now.getMonth() && userDate.getFullYear() === now.getFullYear();
+    }).length;
+    
+    const activeUsers = users.filter(user => (user.orderCount || 0) > 0).length;
+    const totalRevenue = users.reduce((sum, user) => sum + (user.totalSpent || 0), 0);
+
+    return { totalUsers, newThisMonth, activeUsers, totalRevenue };
+  };
+
+  const stats = getStats();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <p className="text-lg font-semibold text-gray-900 mb-2">Failed to load users data</p>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <Button onClick={fetchUsers} variant="primary">
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -167,34 +192,25 @@ const AdminUsers = () => {
         {[
           {
             title: 'Total Users',
-            value: users.length,
+            value: stats.totalUsers,
             icon: <UsersIcon size={24} />,
             color: 'primary'
           },
           {
             title: 'New This Month',
-            value: users.filter(user => {
-              const userDate = new Date(user.createdAt);
-              const now = new Date();
-              return userDate.getMonth() === now.getMonth() && userDate.getFullYear() === now.getFullYear();
-            }).length,
+            value: stats.newThisMonth,
             icon: <Calendar size={24} />,
             color: 'success'
           },
           {
             title: 'Active Users',
-            value: users.filter(user => {
-              const lastLogin = new Date(user.lastLogin);
-              const weekAgo = new Date();
-              weekAgo.setDate(weekAgo.getDate() - 7);
-              return lastLogin > weekAgo;
-            }).length,
+            value: stats.activeUsers,
             icon: <Shield size={24} />,
             color: 'accent'
           },
           {
             title: 'Total Revenue',
-            value: `Ksh ${users.reduce((sum, user) => sum + user.totalSpent, 0).toLocaleString()}`,
+            value: `Ksh ${stats.totalRevenue.toLocaleString()}`,
             icon: <Mail size={24} />,
             color: 'warning'
           }
@@ -264,7 +280,7 @@ const AdminUsers = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredUsers.map((user) => {
-                const customerTier = getCustomerTier(user.totalSpent);
+                const customerTier = getCustomerTier(user.totalSpent || 0);
                 return (
                   <motion.tr
                     key={user.id}
@@ -275,11 +291,15 @@ const AdminUsers = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-medium">
-                          {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
+                          {user.first_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                          {user.last_name?.charAt(0) || ''}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {user.firstName} {user.lastName}
+                            {user.first_name || user.last_name ? 
+                              `${user.first_name || ''} ${user.last_name || ''}`.trim() : 
+                              'No name provided'
+                            }
                           </div>
                           <div className="flex items-center">
                             <span className={`px-2 py-1 text-xs rounded-full ${customerTier.color}`}>
@@ -304,23 +324,20 @@ const AdminUsers = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{user.orderCount}</div>
+                      <div className="text-sm font-medium text-gray-900">{user.orderCount || 0}</div>
                       <div className="text-sm text-gray-500">orders</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        Ksh {user.totalSpent.toLocaleString()}
+                        Ksh {(user.totalSpent || 0).toLocaleString()}
                       </div>
                       <div className="text-sm text-gray-500">
-                        Avg: Ksh {(user.totalSpent / Math.max(user.orderCount, 1)).toLocaleString()}
+                        Avg: Ksh {((user.totalSpent || 0) / Math.max(user.orderCount || 1, 1)).toLocaleString()}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Last: {new Date(user.lastLogin).toLocaleDateString()}
+                        {new Date(user.created_at).toLocaleDateString()}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -371,15 +388,19 @@ const AdminUsers = () => {
                 {/* User Header */}
                 <div className="text-center">
                   <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">
-                    {selectedUser.firstName?.charAt(0)}{selectedUser.lastName?.charAt(0)}
+                    {selectedUser.first_name?.charAt(0) || selectedUser.email.charAt(0).toUpperCase()}
+                    {selectedUser.last_name?.charAt(0) || ''}
                   </div>
                   <h4 className="text-xl font-medium text-gray-900">
-                    {selectedUser.firstName} {selectedUser.lastName}
+                    {selectedUser.first_name || selectedUser.last_name ? 
+                      `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() : 
+                      'No name provided'
+                    }
                   </h4>
                   <p className="text-gray-600">{selectedUser.email}</p>
                   <div className="mt-2">
-                    <span className={`px-3 py-1 text-sm rounded-full ${getCustomerTier(selectedUser.totalSpent).color}`}>
-                      {getCustomerTier(selectedUser.totalSpent).tier} Customer
+                    <span className={`px-3 py-1 text-sm rounded-full ${getCustomerTier(selectedUser.totalSpent || 0).color}`}>
+                      {getCustomerTier(selectedUser.totalSpent || 0).tier} Customer
                     </span>
                   </div>
                 </div>
@@ -387,16 +408,16 @@ const AdminUsers = () => {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-2xl font-bold text-gray-900">{selectedUser.orderCount}</p>
+                    <p className="text-2xl font-bold text-gray-900">{selectedUser.orderCount || 0}</p>
                     <p className="text-sm text-gray-600">Total Orders</p>
                   </div>
                   <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-2xl font-bold text-gray-900">Ksh {selectedUser.totalSpent.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-gray-900">Ksh {(selectedUser.totalSpent || 0).toLocaleString()}</p>
                     <p className="text-sm text-gray-600">Total Spent</p>
                   </div>
                   <div className="text-center p-4 bg-gray-50 rounded-lg">
                     <p className="text-2xl font-bold text-gray-900">
-                      Ksh {(selectedUser.totalSpent / Math.max(selectedUser.orderCount, 1)).toLocaleString()}
+                      Ksh {((selectedUser.totalSpent || 0) / Math.max(selectedUser.orderCount || 1, 1)).toLocaleString()}
                     </p>
                     <p className="text-sm text-gray-600">Avg Order</p>
                   </div>
@@ -421,11 +442,11 @@ const AdminUsers = () => {
                     Address Information
                   </h5>
                   <div className="bg-gray-50 p-4 rounded-lg">
-                    {selectedUser.addressLine1 ? (
+                    {selectedUser.address_line1 ? (
                       <div className="space-y-1">
-                        <p>{selectedUser.addressLine1}</p>
-                        {selectedUser.addressLine2 && <p>{selectedUser.addressLine2}</p>}
-                        <p>{selectedUser.city}, {selectedUser.state} {selectedUser.postalCode}</p>
+                        <p>{selectedUser.address_line1}</p>
+                        {selectedUser.address_line2 && <p>{selectedUser.address_line2}</p>}
+                        <p>{selectedUser.city}, {selectedUser.state} {selectedUser.postal_code}</p>
                         {selectedUser.country && <p>{selectedUser.country}</p>}
                       </div>
                     ) : (
@@ -441,19 +462,12 @@ const AdminUsers = () => {
                     Account Information
                   </h5>
                   <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                    <p><strong>Member Since:</strong> {new Date(selectedUser.createdAt).toLocaleDateString('en-US', {
+                    <p><strong>Member Since:</strong> {new Date(selectedUser.created_at).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric'
                     })}</p>
-                    <p><strong>Last Login:</strong> {new Date(selectedUser.lastLogin).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}</p>
-                    <p><strong>Last Updated:</strong> {new Date(selectedUser.updatedAt).toLocaleDateString('en-US', {
+                    <p><strong>Last Updated:</strong> {new Date(selectedUser.updated_at).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric'

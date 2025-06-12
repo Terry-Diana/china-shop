@@ -8,34 +8,121 @@ import {
   LineChart, Line, PieChart, Pie, Cell, CartesianGrid, Tooltip, XAxis, YAxis, ResponsiveContainer
 } from 'recharts';
 import { useRealTimeData } from '../../hooks/useRealTimeData';
-import { adminService } from '../../services/adminService';
-import { AnalyticsData } from '../../types/admin';
+import { supabase } from '../../lib/supabase';
 
 const COLORS = ['#013352', '#024d79', '#0072b1', '#00a3ff'];
 
+interface DashboardStats {
+  totalRevenue: number;
+  totalOrders: number;
+  totalUsers: number;
+  totalProducts: number;
+  todayOrders: number;
+  todayUsers: number;
+  todayRevenue: number;
+}
+
+interface RecentActivity {
+  id: string;
+  action: string;
+  user: string;
+  time: string;
+}
+
 const AdminDashboard = () => {
   const [timeRange, setTimeRange] = useState('7d');
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const { stats, loading: statsLoading } = useRealTimeData();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        setLoading(true);
-        const data = await adminService.getAnalytics();
-        setAnalyticsData(data);
-      } catch (error) {
-        console.error('Error fetching analytics:', error);
-        setAnalyticsData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAnalytics();
+    fetchDashboardData();
   }, [timeRange]);
 
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get current date for today's stats
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+      // Fetch all required data in parallel
+      const [
+        { data: orders, error: ordersError },
+        { data: users, error: usersError },
+        { data: products, error: productsError },
+        { data: todayOrdersData, error: todayOrdersError },
+        { data: todayUsersData, error: todayUsersError }
+      ] = await Promise.all([
+        supabase.from('orders').select('*'),
+        supabase.from('users').select('*'),
+        supabase.from('products').select('*'),
+        supabase
+          .from('orders')
+          .select('*')
+          .gte('created_at', todayStart.toISOString()),
+        supabase
+          .from('users')
+          .select('*')
+          .gte('created_at', todayStart.toISOString())
+      ]);
+
+      if (ordersError) throw ordersError;
+      if (usersError) throw usersError;
+      if (productsError) throw productsError;
+      if (todayOrdersError) throw todayOrdersError;
+      if (todayUsersError) throw todayUsersError;
+
+      // Calculate stats
+      const totalRevenue = orders?.reduce((sum, order) => sum + order.total, 0) || 0;
+      const todayRevenue = todayOrdersData?.reduce((sum, order) => sum + order.total, 0) || 0;
+
+      const dashboardStats: DashboardStats = {
+        totalRevenue,
+        totalOrders: orders?.length || 0,
+        totalUsers: users?.length || 0,
+        totalProducts: products?.length || 0,
+        todayOrders: todayOrdersData?.length || 0,
+        todayUsers: todayUsersData?.length || 0,
+        todayRevenue
+      };
+
+      setStats(dashboardStats);
+
+      // Generate recent activity from real orders
+      const recentOrders = orders?.slice(-5) || [];
+      const activity: RecentActivity[] = recentOrders.map((order, index) => ({
+        id: order.id.toString(),
+        action: `New order #${order.tracking_number || order.id}`,
+        user: 'Customer',
+        time: formatTimeAgo(order.created_at)
+      }));
+
+      setRecentActivity(activity);
+
+    } catch (err: any) {
+      console.error('Error fetching dashboard data:', err);
+      setError(err.message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
+    return `${Math.floor(diffInMinutes / 1440)} days ago`;
+  };
+
+  // Mock sales data for charts (you can replace this with real data later)
   const salesData = [
     { name: 'Jan', sales: 4000, orders: 24 },
     { name: 'Feb', sales: 3000, orders: 18 },
@@ -52,7 +139,7 @@ const AdminDashboard = () => {
     { name: 'Beauty', value: 200, color: COLORS[3] },
   ];
 
-  if (loading || statsLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -60,11 +147,25 @@ const AdminDashboard = () => {
     );
   }
 
-  if (!analyticsData) {
+  if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center text-gray-600">
-        <p className="text-lg font-semibold">Failed to load analytics data.</p>
-        <p className="text-sm mt-2">Please try again later or check your internet connection.</p>
+        <p className="text-lg font-semibold">Failed to load dashboard data.</p>
+        <p className="text-sm mt-2">{error}</p>
+        <button 
+          onClick={fetchDashboardData}
+          className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-600">No data available</p>
       </div>
     );
   }
@@ -75,15 +176,13 @@ const AdminDashboard = () => {
       <div className="bg-gradient-to-r from-primary to-primary-dark rounded-lg p-6 text-white">
         <h1 className="text-2xl font-bold mb-2">Welcome back, Admin!</h1>
         <p className="text-primary-100">Here's what's happening with your store today.</p>
-        {stats && (
-          <div className="mt-4 flex items-center space-x-6 text-sm">
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
-              Real-time data active
-            </div>
-            <div>Last updated: {new Date().toLocaleTimeString()}</div>
+        <div className="mt-4 flex items-center space-x-6 text-sm">
+          <div className="flex items-center">
+            <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+            Real-time data active
           </div>
-        )}
+          <div>Last updated: {new Date().toLocaleTimeString()}</div>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -91,7 +190,7 @@ const AdminDashboard = () => {
         {[
           {
             title: 'Total Revenue',
-            value: `Ksh ${analyticsData.overview.totalRevenue?.toLocaleString() || '0'}`,
+            value: `Ksh ${stats.totalRevenue.toLocaleString()}`,
             change: '+12.5%',
             icon: <DollarSign size={24} />,
             positive: true,
@@ -99,7 +198,7 @@ const AdminDashboard = () => {
           },
           {
             title: 'Orders Today',
-            value: stats?.todayOrders?.toString() || '0',
+            value: stats.todayOrders.toString(),
             change: '+8.2%',
             icon: <ShoppingBag size={24} />,
             positive: true,
@@ -107,7 +206,7 @@ const AdminDashboard = () => {
           },
           {
             title: 'New Users Today',
-            value: stats?.todayUsers?.toString() || '0',
+            value: stats.todayUsers.toString(),
             change: '+15.3%',
             icon: <Users size={24} />,
             positive: true,
@@ -115,7 +214,7 @@ const AdminDashboard = () => {
           },
           {
             title: 'Total Products',
-            value: `Ksh ${analyticsData?.overview?.totalRevenue?.toLocaleString() || '0'}`,
+            value: stats.totalProducts.toString(),
             change: '+2.1%',
             icon: <Package size={24} />,
             positive: true,
@@ -220,21 +319,21 @@ const AdminDashboard = () => {
       {/* Recent Activity */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-lg font-semibold mb-6">Recent Activity</h2>
-        {stats?.recentActivity && stats.recentActivity.length > 0 ? (
+        {recentActivity.length > 0 ? (
           <ul className="space-y-3 max-h-64 overflow-y-auto">
-            {stats.recentActivity.map((activity, index) => (
+            {recentActivity.map((activity, index) => (
               <li
-                key={index}
+                key={activity.id}
                 className="flex items-center justify-between p-3 bg-primary-50 rounded-md"
               >
-                console.log('Analytics Data:', analyticsData);
                 <div>
                   <p className="text-sm font-medium text-primary">{activity.action}</p>
-                  <p className="text-xs text-gray-500">
-                   {activity.user || 'Unknown User'}
-                  </p>
+                  <p className="text-xs text-gray-500">{activity.user}</p>
                 </div>
-                <Clock size={16} className="text-gray-400" />
+                <div className="flex items-center text-gray-400">
+                  <Clock size={16} className="mr-1" />
+                  <span className="text-xs">{activity.time}</span>
+                </div>
               </li>
             ))}
           </ul>

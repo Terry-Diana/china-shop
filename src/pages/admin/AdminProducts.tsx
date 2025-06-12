@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
@@ -18,16 +18,83 @@ import {
   CheckCircle
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
-import { mockProducts } from '../../data/mockProducts';
+import { supabase } from '../../lib/supabase';
+
+interface Product {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  original_price: number | null;
+  discount: number;
+  category_id: number | null;
+  brand: string;
+  stock: number;
+  rating: number;
+  review_count: number;
+  is_new: boolean;
+  is_best_seller: boolean;
+  image_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  slug: string;
+}
 
 const AdminProducts = () => {
-  const [products, setProducts] = useState(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data, error: fetchError } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+      setProducts(data || []);
+    } catch (err: any) {
+      console.error('Error fetching products:', err);
+      setError(err.message || 'Failed to fetch products');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('categories')
+        .select('id, name, slug')
+        .order('name');
+
+      if (fetchError) throw fetchError;
+      setCategories(data || []);
+    } catch (err: any) {
+      console.error('Error fetching categories:', err);
+    }
+  };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -60,36 +127,63 @@ const AdminProducts = () => {
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+                         product.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || product.category_id?.toString() === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const categories = Array.from(new Set(products.map(p => p.category)));
-
-  const handleProductSubmit = (e: React.FormEvent) => {
+  const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Here you would implement the actual product creation/update logic
+      // For now, just simulate success
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
       setLoading(false);
       setShowProductForm(false);
       alert(selectedProduct ? 'Product updated successfully!' : 'Product created successfully!');
-    }, 1500);
+      
+      // Refresh products list
+      await fetchProducts();
+    } catch (error) {
+      setLoading(false);
+      alert('Error saving product. Please try again.');
+    }
   };
 
-  const handleDeleteProduct = (productId: number) => {
-    if (confirm('Are you sure you want to delete this product?')) {
+  const handleDeleteProduct = async (productId: number) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+      if (error) throw error;
+
+      // Remove from local state
       setProducts(products.filter(p => p.id !== productId));
       alert('Product deleted successfully!');
+    } catch (error: any) {
+      console.error('Error deleting product:', error);
+      alert('Error deleting product. Please try again.');
     }
   };
 
   const exportProducts = () => {
+    if (products.length === 0) {
+      alert('No products to export');
+      return;
+    }
+
     const csvContent = [
       Object.keys(products[0]).join(','),
-      ...products.map(product => Object.values(product).join(','))
+      ...products.map(product => Object.values(product).map(value => 
+        typeof value === 'string' ? `"${value}"` : value
+      ).join(','))
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -100,6 +194,14 @@ const AdminProducts = () => {
     a.click();
     window.URL.revokeObjectURL(url);
   };
+
+  if (loading && products.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -136,6 +238,12 @@ const AdminProducts = () => {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-error-50 border border-error-200 text-error-dark px-4 py-3 rounded-md">
+          {error}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -189,7 +297,7 @@ const AdminProducts = () => {
             >
               <option value="all">All Categories</option>
               {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
+                <option key={category.id} value={category.id.toString()}>{category.name}</option>
               ))}
             </select>
           </div>
@@ -223,94 +331,100 @@ const AdminProducts = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
-                <motion.tr
-                  key={product.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-12 w-12 flex-shrink-0">
-                        <img
-                          className="h-12 w-12 rounded-lg object-cover"
-                          src={product.image}
-                          alt={product.name}
-                        />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {product.name}
+              {filteredProducts.map((product) => {
+                const category = categories.find(c => c.id === product.category_id);
+                return (
+                  <motion.tr
+                    key={product.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-12 w-12 flex-shrink-0">
+                          <img
+                            className="h-12 w-12 rounded-lg object-cover"
+                            src={product.image_url || 'https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg'}
+                            alt={product.name}
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg';
+                            }}
+                          />
                         </div>
-                        <div className="text-sm text-gray-500">
-                          SKU: #{product.id.toString().padStart(6, '0')}
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {product.name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            SKU: #{product.id.toString().padStart(6, '0')}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-50 text-primary">
-                      {product.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 font-medium">Ksh {product.price.toFixed(2)}</div>
-                    {product.originalPrice > product.price && (
-                      <div className="text-xs text-gray-500 line-through">
-                        Ksh {product.originalPrice.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-50 text-primary">
+                        {category?.name || 'Uncategorized'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 font-medium">Ksh {product.price.toFixed(2)}</div>
+                      {product.original_price && product.original_price > product.price && (
+                        <div className="text-xs text-gray-500 line-through">
+                          Ksh {product.original_price.toFixed(2)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="text-sm text-gray-900 font-medium mr-2">{product.stock}</div>
+                        <div className={`w-2 h-2 rounded-full ${
+                          product.stock > 10 ? 'bg-success' : 
+                          product.stock > 0 ? 'bg-warning' : 'bg-error'
+                        }`}></div>
                       </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="text-sm text-gray-900 font-medium mr-2">{product.stock}</div>
-                      <div className={`w-2 h-2 rounded-full ${
-                        product.stock > 10 ? 'bg-success' : 
-                        product.stock > 0 ? 'bg-warning' : 'bg-error'
-                      }`}></div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      product.stock > 10
-                        ? 'bg-success-50 text-success'
-                        : product.stock > 0
-                        ? 'bg-warning-50 text-warning'
-                        : 'bg-error-50 text-error'
-                    }`}>
-                      {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button
-                        className="text-gray-400 hover:text-primary transition-colors"
-                        title="View Product"
-                      >
-                        <Eye size={18} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setShowProductForm(true);
-                        }}
-                        className="text-gray-400 hover:text-primary transition-colors"
-                        title="Edit Product"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteProduct(product.id)}
-                        className="text-gray-400 hover:text-error transition-colors"
-                        title="Delete Product"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        product.stock > 10
+                          ? 'bg-success-50 text-success'
+                          : product.stock > 0
+                          ? 'bg-warning-50 text-warning'
+                          : 'bg-error-50 text-error'
+                      }`}>
+                        {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          className="text-gray-400 hover:text-primary transition-colors"
+                          title="View Product"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setShowProductForm(true);
+                          }}
+                          className="text-gray-400 hover:text-primary transition-colors"
+                          title="Edit Product"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="text-gray-400 hover:text-error transition-colors"
+                          title="Delete Product"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </motion.tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -410,7 +524,7 @@ const AdminProducts = () => {
                       step="0.01"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="0.00"
-                      defaultValue={selectedProduct?.originalPrice}
+                      defaultValue={selectedProduct?.original_price || ''}
                     />
                   </div>
                   <div>
@@ -435,11 +549,11 @@ const AdminProducts = () => {
                   <select 
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    defaultValue={selectedProduct?.category}
+                    defaultValue={selectedProduct?.category_id || ''}
                   >
                     <option value="">Select a category</option>
                     {categories.map(category => (
-                      <option key={category} value={category}>{category}</option>
+                      <option key={category.id} value={category.id}>{category.name}</option>
                     ))}
                   </select>
                 </div>
@@ -465,7 +579,7 @@ const AdminProducts = () => {
                     <input 
                       type="checkbox" 
                       className="rounded border-gray-300 text-primary focus:ring-primary"
-                      defaultChecked={selectedProduct?.isNew}
+                      defaultChecked={selectedProduct?.is_new}
                     />
                     <span className="ml-2 text-sm text-gray-700">Mark as New</span>
                   </label>
@@ -473,7 +587,7 @@ const AdminProducts = () => {
                     <input 
                       type="checkbox" 
                       className="rounded border-gray-300 text-primary focus:ring-primary"
-                      defaultChecked={selectedProduct?.bestSeller}
+                      defaultChecked={selectedProduct?.is_best_seller}
                     />
                     <span className="ml-2 text-sm text-gray-700">Best Seller</span>
                   </label>

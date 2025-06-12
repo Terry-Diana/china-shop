@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 export interface RealTimeStats {
   todayOrders: number;
@@ -14,55 +15,108 @@ export interface RealTimeStats {
 
 export const useRealTimeData = () => {
   const [stats, setStats] = useState<RealTimeStats>({
-    todayOrders: 156,
-    todayUsers: 89,
-    todayRevenue: 247500,
-    recentActivity: [
-      { id: '1', action: 'New order placed', user: 'John Doe', time: '2 min ago' },
-      { id: '2', action: 'User registered', user: 'Sarah Johnson', time: '5 min ago' },
-      { id: '3', action: 'Product updated', user: 'Admin', time: '12 min ago' },
-      { id: '4', action: 'Order shipped', user: 'System', time: '18 min ago' },
-      { id: '5', action: 'Payment received', user: 'Mike Wilson', time: '25 min ago' }
-    ]
+    todayOrders: 0,
+    todayUsers: 0,
+    todayRevenue: 0,
+    recentActivity: []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Simulate real-time updates
+  const fetchRealTimeStats = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get today's date range
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const todayEnd = new Date(todayStart);
+      todayEnd.setDate(todayEnd.getDate() + 1);
+
+      // Fetch today's orders
+      const { data: todayOrders, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .gte('created_at', todayStart.toISOString())
+        .lt('created_at', todayEnd.toISOString());
+
+      if (ordersError) throw ordersError;
+
+      // Fetch today's users
+      const { data: todayUsers, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .gte('created_at', todayStart.toISOString())
+        .lt('created_at', todayEnd.toISOString());
+
+      if (usersError) throw usersError;
+
+      // Calculate today's revenue
+      const todayRevenue = todayOrders?.reduce((sum, order) => sum + order.total, 0) || 0;
+
+      // Get recent activity from orders
+      const { data: recentOrders, error: recentError } = await supabase
+        .from('orders')
+        .select('id, tracking_number, total, created_at, users(first_name, last_name)')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (recentError) throw recentError;
+
+      // Format recent activity
+      const recentActivity = recentOrders?.map((order, index) => ({
+        id: order.id.toString(),
+        action: `New order ${order.tracking_number || `#${order.id}`}`,
+        user: order.users?.first_name ? 
+          `${order.users.first_name} ${order.users.last_name || ''}`.trim() : 
+          'Customer',
+        time: formatTimeAgo(order.created_at)
+      })) || [];
+
+      setStats({
+        todayOrders: todayOrders?.length || 0,
+        todayUsers: todayUsers?.length || 0,
+        todayRevenue,
+        recentActivity
+      });
+
+    } catch (err: any) {
+      console.error('Error fetching real-time stats:', err);
+      setError(err.message || 'Failed to fetch real-time data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    return `${Math.floor(diffInMinutes / 1440)}d ago`;
+  };
+
+  const refetch = () => {
+    fetchRealTimeStats();
+  };
+
+  // Initial fetch
+  useEffect(() => {
+    fetchRealTimeStats();
+  }, []);
+
+  // Set up real-time updates every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      setStats(prev => ({
-        ...prev,
-        todayOrders: prev.todayOrders + Math.floor(Math.random() * 3),
-        todayUsers: prev.todayUsers + Math.floor(Math.random() * 2),
-        todayRevenue: prev.todayRevenue + Math.floor(Math.random() * 5000)
-      }));
-    }, 30000); // Update every 30 seconds
+      fetchRealTimeStats();
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);
-
-const refetch = () => {
-  setLoading(true);
-  // Simulate API call
-  setTimeout(() => {
-    // Simulate an error
-    const hasError = Math.random() < 0.1; // 10% chance
-
-    if (hasError) {
-      setError("Failed to fetch data");
-    } else {
-      setStats(prev => ({
-        ...prev,
-        todayOrders: prev.todayOrders + 1,
-        todayUsers: prev.todayUsers + 1
-      }));
-      setError(null);
-    }
-
-    setLoading(false);
-  }, 1000);
-};
 
   return { stats, loading, error, refetch };
 };
