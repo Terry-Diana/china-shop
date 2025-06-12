@@ -36,6 +36,8 @@ const AdminInventory = () => {
   const [stockFilter, setStockFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingStock, setUpdatingStock] = useState<number | null>(null);
+  const [stockValues, setStockValues] = useState<Record<number, number>>({});
 
   useEffect(() => {
     fetchData();
@@ -59,6 +61,13 @@ const AdminInventory = () => {
 
       setProducts(productsData || []);
       setCategories(categoriesData || []);
+      
+      // Initialize stock values
+      const initialStockValues: Record<number, number> = {};
+      productsData?.forEach(product => {
+        initialStockValues[product.id] = product.stock;
+      });
+      setStockValues(initialStockValues);
     } catch (err: any) {
       console.error('Error fetching data:', err);
       setError(err.message || 'Failed to fetch data');
@@ -67,8 +76,11 @@ const AdminInventory = () => {
     }
   };
 
-  const updateStock = async (productId: number, newStock: number) => {
+  const updateStock = async (productId: number) => {
     try {
+      setUpdatingStock(productId);
+      const newStock = stockValues[productId];
+      
       const { error } = await supabase
         .from('products')
         .update({ stock: newStock })
@@ -85,7 +97,16 @@ const AdminInventory = () => {
     } catch (error: any) {
       console.error('Error updating stock:', error);
       alert('Failed to update stock. Please try again.');
+    } finally {
+      setUpdatingStock(null);
     }
+  };
+
+  const handleStockChange = (productId: number, value: number) => {
+    setStockValues(prev => ({
+      ...prev,
+      [productId]: value
+    }));
   };
 
   const filteredProducts = products.filter(product => {
@@ -297,27 +318,27 @@ const AdminInventory = () => {
                         <div className="flex-grow h-2 bg-gray-200 rounded-full mr-2 w-20">
                           <div
                             className={`h-2 rounded-full ${
-                              product.stock > 10
+                              stockValues[product.id] > 10
                                 ? 'bg-success'
-                                : product.stock > 0
+                                : stockValues[product.id] > 0
                                 ? 'bg-warning'
                                 : 'bg-error'
                             }`}
-                            style={{ width: `${Math.min((product.stock / 20) * 100, 100)}%` }}
+                            style={{ width: `${Math.min((stockValues[product.id] / 20) * 100, 100)}%` }}
                           />
                         </div>
-                        <span className="text-sm text-gray-600 min-w-[3rem]">{product.stock}</span>
+                        <span className="text-sm text-gray-600 min-w-[3rem]">{stockValues[product.id]}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        product.stock > 10
+                        stockValues[product.id] > 10
                           ? 'bg-success-50 text-success'
-                          : product.stock > 0
+                          : stockValues[product.id] > 0
                           ? 'bg-warning-50 text-warning'
                           : 'bg-error-50 text-error'
                       }`}>
-                        {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
+                        {stockValues[product.id] > 10 ? 'In Stock' : stockValues[product.id] > 0 ? 'Low Stock' : 'Out of Stock'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -325,25 +346,20 @@ const AdminInventory = () => {
                         <input
                           type="number"
                           min="0"
-                          value={product.stock}
+                          value={stockValues[product.id]}
                           onChange={(e) => {
                             const newStock = parseInt(e.target.value) || 0;
-                            updateStock(product.id, newStock);
+                            handleStockChange(product.id, newStock);
                           }}
                           className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => {
-                            const newStock = prompt('Enter new stock quantity:', product.stock.toString());
-                            if (newStock !== null) {
-                              const stockNumber = parseInt(newStock) || 0;
-                              updateStock(product.id, stockNumber);
-                            }
-                          }}
+                          onClick={() => updateStock(product.id)}
+                          disabled={updatingStock === product.id}
                         >
-                          Update
+                          {updatingStock === product.id ? 'Updating...' : 'Update'}
                         </Button>
                       </div>
                     </td>

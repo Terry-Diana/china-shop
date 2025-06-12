@@ -18,6 +18,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import ProductQuickView from '../../components/admin/ProductQuickView';
 import { supabase } from '../../lib/supabase';
 
 interface Product {
@@ -54,8 +55,12 @@ const AdminProducts = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showQuickView, setShowQuickView] = useState(false);
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
 
   useEffect(() => {
     fetchProducts();
@@ -105,8 +110,8 @@ const AdminProducts = () => {
         console.log('Parsed CSV:', results.data);
         setLoading(false);
         setShowUploadModal(false);
-        // Show success message
         alert(`Successfully imported ${results.data.length} products!`);
+        fetchProducts(); // Refresh products list
       },
       header: true,
       error: (error) => {
@@ -125,6 +130,26 @@ const AdminProducts = () => {
     multiple: false,
   });
 
+  const handleImageDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  const { getRootProps: getImageRootProps, getInputProps: getImageInputProps, isDragActive: isImageDragActive } = useDropzone({
+    onDrop: handleImageDrop,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+    },
+    multiple: false,
+  });
+
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -137,19 +162,80 @@ const AdminProducts = () => {
     setLoading(true);
     
     try {
-      // Here you would implement the actual product creation/update logic
-      // For now, just simulate success
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const formData = new FormData(e.target as HTMLFormElement);
       
-      setLoading(false);
+      let imageUrl = selectedProduct?.image_url || '';
+      
+      // Upload image if a new one was selected
+      if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `products/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, imageFile);
+
+        if (uploadError) {
+          console.error('Image upload error:', uploadError);
+          // Continue without image if upload fails
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(filePath);
+          imageUrl = publicUrl;
+        }
+      }
+
+      const productData = {
+        name: formData.get('name') as string,
+        description: formData.get('description') as string,
+        price: parseFloat(formData.get('price') as string),
+        original_price: formData.get('originalPrice') ? parseFloat(formData.get('originalPrice') as string) : null,
+        brand: formData.get('brand') as string,
+        stock: parseInt(formData.get('stock') as string),
+        category_id: formData.get('category') ? parseInt(formData.get('category') as string) : null,
+        is_new: formData.get('isNew') === 'on',
+        is_best_seller: formData.get('isBestSeller') === 'on',
+        image_url: imageUrl,
+        slug: (formData.get('name') as string).toLowerCase().replace(/\s+/g, '-'),
+        discount: 0 // Calculate discount if needed
+      };
+
+      // Calculate discount
+      if (productData.original_price && productData.original_price > productData.price) {
+        productData.discount = Math.round(((productData.original_price - productData.price) / productData.original_price) * 100);
+      }
+
+      if (selectedProduct) {
+        // Update existing product
+        const { error } = await supabase
+          .from('products')
+          .update(productData)
+          .eq('id', selectedProduct.id);
+
+        if (error) throw error;
+        alert('Product updated successfully!');
+      } else {
+        // Create new product
+        const { error } = await supabase
+          .from('products')
+          .insert(productData);
+
+        if (error) throw error;
+        alert('Product created successfully!');
+      }
+      
       setShowProductForm(false);
-      alert(selectedProduct ? 'Product updated successfully!' : 'Product created successfully!');
-      
-      // Refresh products list
+      setSelectedProduct(null);
+      setImageFile(null);
+      setImagePreview('');
       await fetchProducts();
-    } catch (error) {
-      setLoading(false);
+    } catch (error: any) {
+      console.error('Error saving product:', error);
       alert('Error saving product. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -164,13 +250,23 @@ const AdminProducts = () => {
 
       if (error) throw error;
 
-      // Remove from local state
       setProducts(products.filter(p => p.id !== productId));
       alert('Product deleted successfully!');
     } catch (error: any) {
       console.error('Error deleting product:', error);
       alert('Error deleting product. Please try again.');
     }
+  };
+
+  const handleQuickView = (product: Product) => {
+    setQuickViewProduct(product);
+    setShowQuickView(true);
+  };
+
+  const handleEditFromQuickView = (product: Product) => {
+    setSelectedProduct(product);
+    setShowQuickView(false);
+    setShowProductForm(true);
   };
 
   const exportProducts = () => {
@@ -231,6 +327,8 @@ const AdminProducts = () => {
             icon={<Plus size={18} />}
             onClick={() => {
               setSelectedProduct(null);
+              setImageFile(null);
+              setImagePreview('');
               setShowProductForm(true);
             }}
           >
@@ -398,6 +496,7 @@ const AdminProducts = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
                         <button
+                          onClick={() => handleQuickView(product)}
                           className="text-gray-400 hover:text-primary transition-colors"
                           title="View Product"
                         >
@@ -406,6 +505,7 @@ const AdminProducts = () => {
                         <button
                           onClick={() => {
                             setSelectedProduct(product);
+                            setImagePreview(product.image_url || '');
                             setShowProductForm(true);
                           }}
                           className="text-gray-400 hover:text-primary transition-colors"
@@ -452,7 +552,12 @@ const AdminProducts = () => {
                   {selectedProduct ? 'Edit Product' : 'Add New Product'}
                 </h3>
                 <button
-                  onClick={() => setShowProductForm(false)}
+                  onClick={() => {
+                    setShowProductForm(false);
+                    setSelectedProduct(null);
+                    setImageFile(null);
+                    setImagePreview('');
+                  }}
                   className="text-gray-400 hover:text-gray-500"
                   disabled={loading}
                 >
@@ -468,6 +573,7 @@ const AdminProducts = () => {
                     </label>
                     <input
                       type="text"
+                      name="name"
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="Enter product name"
@@ -480,6 +586,7 @@ const AdminProducts = () => {
                     </label>
                     <input
                       type="text"
+                      name="brand"
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="Enter brand name"
@@ -493,6 +600,7 @@ const AdminProducts = () => {
                     Description *
                   </label>
                   <textarea
+                    name="description"
                     required
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -508,6 +616,7 @@ const AdminProducts = () => {
                     </label>
                     <input
                       type="number"
+                      name="price"
                       step="0.01"
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -521,6 +630,7 @@ const AdminProducts = () => {
                     </label>
                     <input
                       type="number"
+                      name="originalPrice"
                       step="0.01"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="0.00"
@@ -533,6 +643,7 @@ const AdminProducts = () => {
                     </label>
                     <input
                       type="number"
+                      name="stock"
                       required
                       min="0"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -547,9 +658,10 @@ const AdminProducts = () => {
                     Category *
                   </label>
                   <select 
+                    name="category"
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    defaultValue={selectedProduct?.category_id || ''}
+                    defaultValue={selectedProduct?.category_id ||''}
                   >
                     <option value="">Select a category</option>
                     {categories.map(category => (
@@ -560,17 +672,46 @@ const AdminProducts = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Product Images
+                    Product Image
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors">
-                    <ImageIcon size={48} className="mx-auto text-gray-400 mb-4" />
-                    <p className="text-gray-600 mb-2">
-                      Drag & drop product images here, or click to select
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Maximum 5 images, PNG or JPG, max 2MB each
-                    </p>
-                    <input type="file" multiple accept="image/*" className="hidden" />
+                  <div 
+                    {...getImageRootProps()}
+                    className={`border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors ${
+                      isImageDragActive ? 'border-primary bg-primary-50' : 'border-gray-300'
+                    }`}
+                  >
+                    <input {...getImageInputProps()} />
+                    
+                    {imagePreview || selectedProduct?.image_url ? (
+                      <div className="relative">
+                        <img 
+                          src={imagePreview || selectedProduct?.image_url} 
+                          alt="Product preview" 
+                          className="h-40 mx-auto object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setImageFile(null);
+                            setImagePreview('');
+                          }}
+                          className="absolute top-0 right-0 bg-error text-white rounded-full p-1"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <ImageIcon size={48} className="mx-auto text-gray-400 mb-4" />
+                        <p className="text-gray-600 mb-2">
+                          Drag & drop product image here, or click to select
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          PNG, JPG or GIF, max 2MB
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -578,6 +719,7 @@ const AdminProducts = () => {
                   <label className="flex items-center">
                     <input 
                       type="checkbox" 
+                      name="isNew"
                       className="rounded border-gray-300 text-primary focus:ring-primary"
                       defaultChecked={selectedProduct?.is_new}
                     />
@@ -586,6 +728,7 @@ const AdminProducts = () => {
                   <label className="flex items-center">
                     <input 
                       type="checkbox" 
+                      name="isBestSeller"
                       className="rounded border-gray-300 text-primary focus:ring-primary"
                       defaultChecked={selectedProduct?.is_best_seller}
                     />
@@ -596,7 +739,12 @@ const AdminProducts = () => {
                 <div className="flex justify-end gap-3 pt-6 border-t">
                   <Button
                     variant="outline"
-                    onClick={() => setShowProductForm(false)}
+                    onClick={() => {
+                      setShowProductForm(false);
+                      setSelectedProduct(null);
+                      setImageFile(null);
+                      setImagePreview('');
+                    }}
                     disabled={loading}
                   >
                     Cancel
@@ -686,6 +834,20 @@ const AdminProducts = () => {
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* Product Quick View Modal */}
+      {showQuickView && quickViewProduct && (
+        <ProductQuickView 
+          product={quickViewProduct} 
+          onClose={() => setShowQuickView(false)}
+          onEdit={(product) => {
+            setSelectedProduct(product);
+            setImagePreview(product.image_url || '');
+            setShowQuickView(false);
+            setShowProductForm(true);
+          }}
+        />
       )}
     </div>
   );

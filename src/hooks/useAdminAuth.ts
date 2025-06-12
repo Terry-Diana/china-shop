@@ -15,11 +15,11 @@ export const useAdminAuth = create<AdminAuthState>()(
   persist(
     (set, get) => ({
       admin: null,
-      loading: false,
+      loading: true,
 
       setAdmin: (admin) => {
         console.log('🔧 useAdminAuth: Setting admin:', admin);
-        set({ admin });
+        set({ admin, loading: false });
       },
 
       logout: async () => {
@@ -116,6 +116,11 @@ export const useAdminAuth = create<AdminAuthState>()(
     {
       name: 'admin-auth-storage',
       partialize: (state) => ({ admin: state.admin }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.loading = false;
+        }
+      }
     }
   )
 );

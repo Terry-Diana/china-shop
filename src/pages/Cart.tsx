@@ -99,6 +99,9 @@ const Cart = () => {
                           src={item.product.image_url} 
                           alt={item.product.name}
                           className="w-full h-full object-cover rounded"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg';
+                          }}
                         />
                       </div>
                       
@@ -106,7 +109,7 @@ const Cart = () => {
                       <div className="sm:ml-6 flex-grow">
                         <div className="flex flex-wrap justify-between mb-2">
                           <h3 className="text-base font-medium text-gray-900">
-                            <Link to={`/product/${item.product.id}`} className="hover:text-primary">
+                            <Link to={`/product/${item.product_id}`} className="hover:text-primary">
                               {item.product.name}
                             </Link>
                           </h3>
@@ -119,7 +122,7 @@ const Cart = () => {
                           {/* Quantity Controls */}
                           <div className="flex items-center border border-gray-300 rounded-md">
                             <button
-                              onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
+                              onClick={() => handleUpdateQuantity(item.product_id, item.quantity - 1)}
                               className="px-2 py-1 text-gray-600 hover:bg-gray-100 transition-colors"
                               disabled={item.quantity <= 1}
                             >
@@ -130,11 +133,11 @@ const Cart = () => {
                               min="1"
                               max="10"
                               value={item.quantity}
-                              onChange={(e) => handleUpdateQuantity(item.product.id, parseInt(e.target.value) || 1)}
+                              onChange={(e) => handleUpdateQuantity(item.product_id, parseInt(e.target.value) || 1)}
                               className="w-10 text-center border-none focus:ring-0"
                             />
                             <button
-                              onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
+                              onClick={() => handleUpdateQuantity(item.product_id, item.quantity + 1)}
                               className="px-2 py-1 text-gray-600 hover:bg-gray-100 transition-colors"
                               disabled={item.quantity >= 10}
                             >
@@ -144,7 +147,7 @@ const Cart = () => {
                           
                           {/* Remove Button */}
                           <button
-                            onClick={() => handleRemoveItem(item.product.id)}
+                            onClick={() => handleRemoveItem(item.product_id)}
                             className="text-gray-500 hover:text-error flex items-center transition-colors"
                           >
                             <Trash2 size={16} className="mr-1" />

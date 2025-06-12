@@ -56,6 +56,7 @@ interface Order {
 const AdminOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -67,7 +68,9 @@ const AdminOrders = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      setError(null);
+      
+      const { data, error: fetchError } = await supabase
         .from('orders')
         .select(`
           *,
@@ -81,22 +84,21 @@ const AdminOrders = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching orders:', error);
-        throw error;
+      if (fetchError) {
+        console.error('Error fetching orders:', fetchError);
+        throw fetchError;
       }
 
       setOrders(data || []);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
+    } catch (err: any) {
+      console.error('Error fetching orders:', err);
+      setError(err.message || 'Failed to fetch orders');
     } finally {
       setLoading(false);
     }
   };
 
   const handleStatusUpdate = async (orderId: number, newStatus: string) => {
-    setLoading(true);
-    
     try {
       const { error } = await supabase
         .from('orders')
@@ -115,13 +117,10 @@ const AdminOrders = () => {
           : order
       ));
       
-      // Show success message
       alert(`Order status updated to ${newStatus}!`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating order status:', error);
       alert('Failed to update order status. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -172,6 +171,11 @@ const AdminOrders = () => {
   });
 
   const exportOrders = () => {
+    if (filteredOrders.length === 0) {
+      alert('No orders to export');
+      return;
+    }
+
     const csvContent = [
       'Order Number,Customer,Email,Status,Total,Date',
       ...filteredOrders.map(order => 
@@ -188,10 +192,34 @@ const AdminOrders = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  const getOrderStats = () => {
+    return {
+      total: orders.length,
+      pending: orders.filter(o => o.status === 'pending').length,
+      processing: orders.filter(o => o.status === 'processing').length,
+      shipped: orders.filter(o => o.status === 'shipped').length,
+      delivered: orders.filter(o => o.status === 'delivered').length
+    };
+  };
+
+  const stats = getOrderStats();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <p className="text-lg font-semibold text-gray-900 mb-2">Failed to load orders</p>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <Button onClick={fetchOrders} variant="primary">
+          Retry
+        </Button>
       </div>
     );
   }
@@ -216,11 +244,11 @@ const AdminOrders = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         {[
-          { title: 'Total Orders', value: orders.length, status: 'all', color: 'primary' },
-          { title: 'Pending', value: orders.filter(o => o.status === 'pending').length, status: 'pending', color: 'warning' },
-          { title: 'Processing', value: orders.filter(o => o.status === 'processing').length, status: 'processing', color: 'primary' },
-          { title: 'Shipped', value: orders.filter(o => o.status === 'shipped').length, status: 'shipped', color: 'blue' },
-          { title: 'Delivered', value: orders.filter(o => o.status === 'delivered').length, status: 'delivered', color: 'success' }
+          { title: 'Total Orders', value: stats.total, status: 'all', color: 'primary' },
+          { title: 'Pending', value: stats.pending, status: 'pending', color: 'warning' },
+          { title: 'Processing', value: stats.processing, status: 'processing', color: 'primary' },
+          { title: 'Shipped', value: stats.shipped, status: 'shipped', color: 'blue' },
+          { title: 'Delivered', value: stats.delivered, status: 'delivered', color: 'success' }
         ].map((stat, index) => (
           <motion.div
             key={index}
@@ -310,7 +338,7 @@ const AdminOrders = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        {order.tracking_number}
+                        {order.tracking_number || `#${order.id}`}
                       </div>
                       <div className="text-sm text-gray-500">
                         {order.order_items?.length || 0} item{(order.order_items?.length || 0) !== 1 ? 's' : ''}
@@ -341,7 +369,6 @@ const AdminOrders = () => {
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
-                        disabled={loading}
                         className={`text-xs font-medium rounded-full border px-2 py-1 ${getStatusColor(order.status)} focus:outline-none focus:ring-2 focus:ring-primary`}
                       >
                         <option value="pending">Pending</option>
@@ -388,7 +415,7 @@ const AdminOrders = () => {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">Order Details</h3>
-                  <p className="text-gray-600">{selectedOrder.tracking_number}</p>
+                  <p className="text-gray-600">{selectedOrder.tracking_number || `#${selectedOrder.id}`}</p>
                 </div>
                 <button
                   onClick={() => setSelectedOrder(null)}

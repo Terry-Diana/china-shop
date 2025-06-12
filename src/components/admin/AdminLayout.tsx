@@ -17,7 +17,7 @@ import {
   Bell,
 } from 'lucide-react';
 import Logo from '../ui/Logo';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import RegisterAdminModal from './RegisterAdminModal';
 import Button from '../ui/Button';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
@@ -30,6 +30,19 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const { admin, logout } = useAdminAuth();
   const { stats } = useRealTimeData();
+
+  // Preserve sidebar state in localStorage
+  useEffect(() => {
+    const savedState = localStorage.getItem('adminSidebarOpen');
+    if (savedState !== null) {
+      setIsSidebarOpen(savedState === 'true');
+    }
+  }, []);
+
+  // Save sidebar state when it changes
+  useEffect(() => {
+    localStorage.setItem('adminSidebarOpen', isSidebarOpen.toString());
+  }, [isSidebarOpen]);
 
   const menuItems = [
     { 

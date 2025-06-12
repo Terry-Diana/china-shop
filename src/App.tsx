@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import AdminLayout from './components/admin/AdminLayout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
@@ -35,13 +35,14 @@ const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 // Admin auth guard component
 const AdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { admin, loading } = useAdminAuth();
+  const location = useLocation();
   
   if (loading) {
     return <LoadingSpinner fullScreen />;
   }
   
   if (!admin) {
-    return <Navigate to="/admin/login\" replace />;
+    return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
   
   return children;
@@ -72,7 +73,7 @@ function App() {
               {/* Admin Routes */}
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route 
-                path="/admin" 
+                path="/admin/*" 
                 element={
                   <AdminProtectedRoute>
                     <AdminLayout />

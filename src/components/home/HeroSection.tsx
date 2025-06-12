@@ -7,7 +7,7 @@ import { slides } from "../../data/slides";
 
 const HeroSection = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [imagesLoaded, setImagesLoaded] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
@@ -20,16 +20,24 @@ const HeroSection = () => {
 
   useEffect(() => {
     // Preload all images
-    slides.forEach((slide) => {
-      const img = new Image();
-      img.onload = () => {
-        setImagesLoaded(prev => ({ ...prev, [slide.id]: true }));
-      };
-      img.onerror = () => {
-        console.warn(`Failed to load image: ${slide.image}`);
-        setImagesLoaded(prev => ({ ...prev, [slide.id]: true }));
-      };
-      img.src = slide.image;
+    const preloadPromises = slides.map((slide) => {
+      return new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          setImagesLoaded(prev => ({ ...prev, [slide.id]: true }));
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn(`Failed to load image: ${slide.image}`);
+          setImagesLoaded(prev => ({ ...prev, [slide.id]: true }));
+          resolve();
+        };
+        img.src = slide.image;
+      });
+    });
+
+    Promise.all(preloadPromises).then(() => {
+      setIsLoading(false);
     });
   }, []);
 
@@ -44,6 +52,16 @@ const HeroSection = () => {
   const getFallbackImage = () => {
     return "https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1";
   };
+
+  if (isLoading) {
+    return (
+      <div className="relative w-full overflow-hidden aspect-[16/9] md:aspect-[21/9] lg:aspect-[25/9] bg-gray-200 animate-pulse">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-gray-400">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full overflow-hidden aspect-[16/9] md:aspect-[21/9] lg:aspect-[25/9]">

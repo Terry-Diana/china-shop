@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   BarChart as BarChartIcon,
@@ -6,6 +6,7 @@ import {
   Users,
   ShoppingBag,
   Calendar,
+  DollarSign,
 } from 'lucide-react';
 import {
   BarChart,
@@ -21,28 +22,212 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-
-const salesData = [
-  { name: 'Jan', sales: 4000, visitors: 2400 },
-  { name: 'Feb', sales: 3000, visitors: 1398 },
-  { name: 'Mar', sales: 2000, visitors: 9800 },
-  { name: 'Apr', sales: 2780, visitors: 3908 },
-  { name: 'May', sales: 1890, visitors: 4800 },
-  
-  { name: 'Jun', sales: 2390, visitors: 3800 },
-];
-
-const categoryData = [
-  { name: 'Electronics', value: 400 },
-  { name: 'Fashion', value: 300 },
-  { name: 'Home', value: 300 },
-  { name: 'Beauty', value: 200 },
-];
+import { supabase } from '../../lib/supabase';
 
 const COLORS = ['#013352', '#024d79', '#0072b1', '#00a3ff'];
 
+interface AnalyticsData {
+  totalSales: number;
+  totalOrders: number;
+  totalCustomers: number;
+  averageOrderValue: number;
+  salesByMonth: Array<{ name: string; sales: number; orders: number }>;
+  categoryData: Array<{ name: string; value: number }>;
+  recentActivity: Array<{
+    icon: React.ReactNode;
+    title: string;
+    time: string;
+    description: string;
+  }>;
+}
+
 const AdminAnalytics = () => {
   const [timeRange, setTimeRange] = useState('7d');
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, [timeRange]);
+
+  const fetchAnalyticsData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch all required data
+      const [
+        { data: orders, error: ordersError },
+        { data: users, error: usersError },
+        { data: products, error: productsError }
+      ] = await Promise.all([
+        supabase.from('orders').select('*'),
+        supabase.from('users').select('*'),
+        supabase.from('products').select('category_id, price')
+      ]);
+
+      if (ordersError) throw ordersError;
+      if (usersError) throw usersError;
+      if (productsError) throw productsError;
+
+      // Calculate analytics
+      const totalSales = orders?.reduce((sum, order) => sum + order.total, 0) || 0;
+      const totalOrders = orders?.length || 0;
+      const totalCustomers = users?.length || 0;
+      const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+
+      // Generate sales by month data (last 6 months)
+      const salesByMonth = generateSalesByMonth(orders || []);
+
+      // Generate category data
+      const categoryData = await generateCategoryData();
+
+      // Generate recent activity
+      const recentActivity = generateRecentActivity(orders || [], users || []);
+
+      setAnalyticsData({
+        totalSales,
+        totalOrders,
+        totalCustomers,
+        averageOrderValue,
+        salesByMonth,
+        categoryData,
+        recentActivity
+      });
+
+    } catch (err: any) {
+      console.error('Error fetching analytics data:', err);
+      setError(err.message || 'Failed to load analytics data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateSalesByMonth = (orders: any[]) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const currentDate = new Date();
+    
+    return months.map((month, index) => {
+      const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - (5 - index), 1);
+      const monthOrders = orders.filter(order => {
+        const orderDate = new Date(order.created_at);
+        return orderDate.getMonth() === monthDate.getMonth() && 
+               orderDate.getFullYear() === monthDate.getFullYear();
+      });
+      
+      return {
+        name: month,
+        sales: monthOrders.reduce((sum, order) => sum + order.total, 0),
+        orders: monthOrders.length
+      };
+    });
+  };
+
+  const generateCategoryData = async () => {
+    try {
+      const { data: categories, error } = await supabase
+        .from('categories')
+        .select('id, name');
+
+      if (error) throw error;
+
+      // Get product count per category
+      const categoryData = await Promise.all(
+        (categories || []).map(async (category) => {
+          const { count } = await supabase
+            .from('products')
+            .select('*', { count: 'exact', head: true })
+            .eq('category_id', category.id);
+
+          return {
+            name: category.name,
+            value: count || 0
+          };
+        })
+      );
+
+      return categoryData.filter(item => item.value > 0);
+    } catch (error) {
+      console.error('Error generating category data:', error);
+      return [
+        { name: 'Electronics', value: 400 },
+        { name: 'Fashion', value: 300 },
+        { name: 'Home', value: 300 },
+        { name: 'Beauty', value: 200 },
+      ];
+    }
+  };
+
+  const generateRecentActivity = (orders: any[], users: any[]) => {
+    const activities = [];
+
+    // Recent orders
+    const recentOrders = orders.slice(-3);
+    recentOrders.forEach(order => {
+      activities.push({
+        icon: <ShoppingBag size={16} />,
+        title: `New Order #${order.tracking_number || order.id}`,
+        time: formatTimeAgo(order.created_at),
+        description: `Order total: Ksh ${order.total.toLocaleString()}`
+      });
+    });
+
+    // Recent users
+    const recentUsers = users.slice(-2);
+    recentUsers.forEach(user => {
+      activities.push({
+        icon: <Users size={16} />,
+        title: 'New Customer',
+        time: formatTimeAgo(user.created_at),
+        description: `${user.first_name || ''} ${user.last_name || ''} joined`.trim() || user.email
+      });
+    });
+
+    return activities.slice(0, 5);
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    return `${Math.floor(diffInMinutes / 1440)}d ago`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <p className="text-lg font-semibold text-gray-900 mb-2">Failed to load analytics data</p>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <button 
+          onClick={fetchAnalyticsData}
+          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!analyticsData) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-600">No analytics data available</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -68,25 +253,25 @@ const AdminAnalytics = () => {
         {[
           {
             title: 'Total Sales',
-            value: '$12,345',
+            value: `Ksh ${analyticsData.totalSales.toLocaleString()}`,
             change: '+12.5%',
-            icon: <TrendingUp size={24} />,
+            icon: <DollarSign size={24} />,
           },
           {
             title: 'Total Orders',
-            value: '156',
+            value: analyticsData.totalOrders.toString(),
             change: '+8.2%',
             icon: <ShoppingBag size={24} />,
           },
           {
             title: 'Total Customers',
-            value: '2,345',
+            value: analyticsData.totalCustomers.toString(),
             change: '+15.3%',
             icon: <Users size={24} />,
           },
           {
             title: 'Average Order Value',
-            value: '$79.99',
+            value: `Ksh ${analyticsData.averageOrderValue.toLocaleString()}`,
             change: '+5.7%',
             icon: <BarChartIcon size={24} />,
           },
@@ -117,11 +302,16 @@ const AdminAnalytics = () => {
           <h2 className="text-lg font-semibold mb-6">Sales Trend</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={salesData}>
+              <LineChart data={analyticsData.salesByMonth}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip 
+                  formatter={(value, name) => [
+                    name === 'sales' ? `Ksh ${value}` : value,
+                    name === 'sales' ? 'Sales' : 'Orders'
+                  ]}
+                />
                 <Line
                   type="monotone"
                   dataKey="sales"
@@ -133,17 +323,17 @@ const AdminAnalytics = () => {
           </div>
         </div>
 
-        {/* Visitor Traffic */}
+        {/* Orders Traffic */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-6">Visitor Traffic</h2>
+          <h2 className="text-lg font-semibold mb-6">Orders by Month</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={salesData}>
+              <BarChart data={analyticsData.salesByMonth}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="visitors" fill="#013352" />
+                <Bar dataKey="orders" fill="#013352" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -151,12 +341,12 @@ const AdminAnalytics = () => {
 
         {/* Category Distribution */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-6">Sales by Category</h2>
+          <h2 className="text-lg font-semibold mb-6">Products by Category</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={categoryData}
+                  data={analyticsData.categoryData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -165,7 +355,7 @@ const AdminAnalytics = () => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {categoryData.map((entry, index) => (
+                  {analyticsData.categoryData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -173,7 +363,7 @@ const AdminAnalytics = () => {
               </PieChart>
             </ResponsiveContainer>
             <div className="flex justify-center gap-4 mt-4">
-              {categoryData.map((category, index) => (
+              {analyticsData.categoryData.map((category, index) => (
                 <div key={category.name} className="flex items-center">
                   <div
                     className="w-3 h-3 rounded-full mr-2"
@@ -190,26 +380,7 @@ const AdminAnalytics = () => {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-lg font-semibold mb-6">Recent Activity</h2>
           <div className="space-y-4">
-            {[
-              {
-                icon: <ShoppingBag size={16} />,
-                title: 'New Order #1234',
-                time: '2 minutes ago',
-                description: 'John Doe placed an order for $129.99',
-              },
-              {
-                icon: <Users size={16} />,
-                title: 'New Customer',
-                time: '15 minutes ago',
-                description: 'Jane Smith created an account',
-              },
-              {
-                icon: <Calendar size={16} />,
-                title: 'Stock Update',
-                time: '1 hour ago',
-                description: 'Inventory updated for 5 products',
-              },
-            ].map((activity, index) => (
+            {analyticsData.recentActivity.map((activity, index) => (
               <div key={index} className="flex items-start">
                 <div className="flex-shrink-0 w-8 h-8 bg-primary-50 rounded-full flex items-center justify-center text-primary">
                   {activity.icon}
