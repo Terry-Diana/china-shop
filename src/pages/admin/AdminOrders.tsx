@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -10,7 +10,6 @@ import {
   Clock,
   AlertCircle,
   Download,
-  MoreHorizontal,
   MapPin,
   CreditCard,
   User
@@ -18,7 +17,25 @@ import {
 import Button from '../../components/ui/Button';
 import { supabase } from '../../lib/supabase';
 
-// Order interface
+// Define proper types
+interface OrderUser {
+  first_name?: string;
+  last_name?: string;
+  email: string;
+}
+
+interface OrderProduct {
+  name: string;
+  image_url: string;
+}
+
+interface OrderItem {
+  id: number;
+  quantity: number;
+  price: number;
+  products: OrderProduct;
+}
+
 interface Order {
   id: number;
   tracking_number: string;
@@ -37,20 +54,9 @@ interface Order {
   notes?: string;
   created_at: string;
   updated_at: string;
-  users?: {
-    first_name?: string;
-    last_name?: string;
-    email: string;
-  };
-  order_items?: Array<{
-    id: number;
-    quantity: number;
-    price: number;
-    products: {
-      name: string;
-      image_url: string;
-    };
-  }>;
+  user_id: string;
+  users: OrderUser | null;
+  order_items: OrderItem[];
 }
 
 const AdminOrders = () => {
@@ -60,11 +66,9 @@ const AdminOrders = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const fetchRef = useRef<() => Promise<void>>();
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
+  // Define fetch function
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -74,29 +78,60 @@ const AdminOrders = () => {
         .from('orders')
         .select(`
           *,
-          users(first_name, last_name, email),
-          order_items(
+          users:user_id (first_name, last_name, email),
+          order_items (
             id,
             quantity,
             price,
-            products(name, image_url)
+            products:product_id (name, image_url)
           )
         `)
         .order('created_at', { ascending: false });
 
-      if (fetchError) {
-        console.error('Error fetching orders:', fetchError);
-        throw fetchError;
-      }
+      if (fetchError) throw fetchError;
 
-      setOrders(data || []);
-    } catch (err: any) {
+      // Cast to Order array and ensure user data exists
+      const typedData = (data as Order[] | null)?.map(order => ({
+        ...order,
+        users: order.users || null
+      })) || [];
+      
+      setOrders(typedData);
+    } catch (err) {
       console.error('Error fetching orders:', err);
-      setError(err.message || 'Failed to fetch orders');
+      setError(err instanceof Error ? err.message : 'Failed to fetch orders');
     } finally {
       setLoading(false);
     }
   };
+
+  // Store fetch function in ref
+  useEffect(() => {
+    fetchRef.current = fetchOrders;
+  }, []);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchRef.current?.();
+  }, []);
+
+  // Real-time subscription
+  useEffect(() => {
+    const subscription = supabase
+      .channel('orders-realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'orders' 
+      }, () => {
+        fetchRef.current?.();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleStatusUpdate = async (orderId: number, newStatus: string) => {
     try {
@@ -110,7 +145,6 @@ const AdminOrders = () => {
 
       if (error) throw error;
 
-      // Update local state
       setOrders(orders.map(order => 
         order.id === orderId 
           ? { ...order, status: newStatus, updated_at: new Date().toISOString() }
@@ -118,9 +152,9 @@ const AdminOrders = () => {
       ));
       
       alert(`Order status updated to ${newStatus}!`);
-    } catch (error: any) {
-      console.error('Error updating order status:', error);
-      alert('Failed to update order status. Please try again.');
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      alert(err instanceof Error ? err.message : 'Failed to update order status');
     }
   };
 
@@ -159,11 +193,12 @@ const AdminOrders = () => {
   };
 
   const filteredOrders = orders.filter(order => {
+    const user = order.users;
     const matchesSearch = 
       order.tracking_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.users?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.users?.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.users?.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      user?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user?.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user?.email?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     
@@ -178,9 +213,10 @@ const AdminOrders = () => {
 
     const csvContent = [
       'Order Number,Customer,Email,Status,Total,Date',
-      ...filteredOrders.map(order => 
-        `${order.tracking_number},"${order.users?.first_name || ''} ${order.users?.last_name || ''}",${order.users?.email || ''},${order.status},${order.total},${new Date(order.created_at).toLocaleDateString()}`
-      )
+      ...filteredOrders.map(order => {
+        const user = order.users;
+        return `${order.tracking_number},"${user?.first_name || ''} ${user?.last_name || ''}",${user?.email || ''},${order.status},${order.total},${new Date(order.created_at).toLocaleDateString()}`;
+      })
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
