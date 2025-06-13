@@ -45,15 +45,20 @@ interface User {
 
 interface Product {
   id: number;
-  categories?: { name: string }[];
+  category_id: number | null;
+  price: number;
+  stock: number;
 }
 
 interface OrderItem {
   quantity: number;
   price: number;
-  products: {
-    categories: { name: string }[];
-  } | null;
+  product_id: number;
+}
+
+interface Category {
+  id: number;
+  name: string;
 }
 
 const AdminDashboard = () => {
@@ -167,28 +172,56 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('order_items')
-        .select('quantity, price, products ( categories ( name ) )');
+      // Fetch categories and order items with product information
+      const [
+        { data: categoriesData, error: categoriesError },
+        { data: orderItemsData, error: orderItemsError }
+      ] = await Promise.all([
+        supabase.from('categories').select('*'),
+        supabase
+          .from('order_items')
+          .select(`
+            quantity,
+            price,
+            products!inner (
+              category_id,
+              categories!inner (
+                name
+              )
+            )
+          `)
+      ]);
 
-      if (error) throw error;
+      if (categoriesError) throw categoriesError;
+      if (orderItemsError) throw orderItemsError;
+
+      const categories = categoriesData as Category[] | null;
+      const orderItems = orderItemsData as any[] | null;
 
       const categorySales: Record<string, number> = {};
-      // No need for type assertion here - let TypeScript infer the type
-      const orderItems = data;
 
+      // Initialize all categories with 0 sales
+      categories?.forEach(category => {
+        categorySales[category.name] = 0;
+      });
+
+      // Calculate sales by category
       orderItems?.forEach((item) => {
-        // Safely access nested properties with optional chaining
-        const categoryName = item.products?.categories?.[0]?.name || 'Uncategorized';
+        const categoryName = item.products?.categories?.name || 'Uncategorized';
         const revenue = item.quantity * item.price;
         categorySales[categoryName] = (categorySales[categoryName] || 0) + revenue;
       });
 
-      setCategoryData(Object.entries(categorySales).map(([name, value], index) => ({
-        name,
-        value,
-        color: COLORS[index % COLORS.length]
-      })));
+      // Filter out categories with 0 sales and create chart data
+      const chartData = Object.entries(categorySales)
+        .filter(([_, value]) => value > 0)
+        .map(([name, value], index) => ({
+          name,
+          value,
+          color: COLORS[index % COLORS.length]
+        }));
+
+      setCategoryData(chartData);
     } catch (err) {
       console.error('Error fetching category data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load category data');

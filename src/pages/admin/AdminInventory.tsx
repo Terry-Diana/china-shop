@@ -41,6 +41,22 @@ const AdminInventory = () => {
 
   useEffect(() => {
     fetchData();
+    
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('inventory-realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'products' 
+      }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchData = async () => {

@@ -49,6 +49,8 @@ const AdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
 };
 
 function App() {
+  const location = useLocation();
+
   useEffect(() => {
     // Register service worker
     if ('serviceWorker' in navigator) {

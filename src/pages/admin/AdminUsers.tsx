@@ -44,6 +44,22 @@ const AdminUsers = () => {
 
   useEffect(() => {
     fetchUsers();
+    
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('users-realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'users' 
+      }, () => {
+        fetchUsers();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUsers = async () => {

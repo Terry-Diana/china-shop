@@ -47,7 +47,8 @@ export const useRealTimeData = () => {
       const [
         { data: todayOrders, error: ordersError },
         { data: todayUsers, error: usersError },
-        { data: recentOrders, error: recentOrdersError }
+        { data: recentOrders, error: recentOrdersError },
+        { data: recentUsers, error: recentUsersError }
       ] = await Promise.all([
         supabase
           .from('orders')
@@ -59,32 +60,78 @@ export const useRealTimeData = () => {
           .gte('created_at', todayStart.toISOString()),
         supabase
           .from('orders')
+          .select('*, users(first_name, last_name, email)')
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('users')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(5)
+          .limit(3)
       ]);
 
       // Handle errors
       if (ordersError) throw ordersError;
       if (usersError) throw usersError;
       if (recentOrdersError) throw recentOrdersError;
+      if (recentUsersError) throw recentUsersError;
 
       // Calculate today's revenue
       const todayRevenue = todayOrders?.reduce((sum, order) => sum + order.total, 0) || 0;
 
       // Format recent activity
-      const recentActivity = (recentOrders || []).map(order => ({
-        id: order.id.toString(),
-        action: `New order #${order.tracking_number || order.id}`,
-        user: 'Customer',
-        time: formatTimeAgo(order.created_at)
-      }));
+      const activity = [];
+      
+      // Add recent orders to activity
+      for (const order of (recentOrders || [])) {
+        const user = order.users;
+        const userName = user ? 
+          `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email : 
+          'Customer';
+          
+        activity.push({
+          id: `order-${order.id}`,
+          action: `New order #${order.tracking_number || order.id}`,
+          user: userName,
+          time: formatTimeAgo(order.created_at)
+        });
+      }
+      
+      // Add recent users to activity
+      for (const user of (recentUsers || [])) {
+        const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email;
+        
+        activity.push({
+          id: `user-${user.id}`,
+          action: 'New user registered',
+          user: userName,
+          time: formatTimeAgo(user.created_at)
+        });
+      }
+      
+      // Sort by time (most recent first)
+      activity.sort((a, b) => {
+        const timeA = a.time;
+        const timeB = b.time;
+        
+        if (timeA === 'Just now') return -1;
+        if (timeB === 'Just now') return 1;
+        
+        const getMinutes = (time: string) => {
+          if (time.includes('minutes')) return parseInt(time);
+          if (time.includes('hours')) return parseInt(time) * 60;
+          if (time.includes('days')) return parseInt(time) * 60 * 24;
+          return 0;
+        };
+        
+        return getMinutes(timeA) - getMinutes(timeB);
+      });
 
       setStats({
         todayOrders: todayOrders?.length || 0,
         todayUsers: todayUsers?.length || 0,
         todayRevenue,
-        recentActivity
+        recentActivity: activity.slice(0, 5)
       });
 
     } catch (err) {
@@ -118,9 +165,19 @@ export const useRealTimeData = () => {
       }, fetchData)
       .subscribe();
 
+    const orderItemsSubscription = supabase
+      .channel('realtime-order-items')
+      .on('postgres_changes', { 
+        event: '*',
+        schema: 'public', 
+        table: 'order_items' 
+      }, fetchData)
+      .subscribe();
+
     return () => {
       ordersSubscription.unsubscribe();
       usersSubscription.unsubscribe();
+      orderItemsSubscription.unsubscribe();
     };
   }, []);
 

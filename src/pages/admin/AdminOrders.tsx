@@ -128,8 +128,20 @@ const AdminOrders = () => {
       })
       .subscribe();
 
+    const orderItemsSubscription = supabase
+      .channel('order-items-realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'order_items' 
+      }, () => {
+        fetchRef.current?.();
+      })
+      .subscribe();
+
     return () => {
       subscription.unsubscribe();
+      orderItemsSubscription.unsubscribe();
     };
   }, []);
 
@@ -524,9 +536,19 @@ const AdminOrders = () => {
                     <div className="space-y-3">
                       {selectedOrder.order_items?.map((item, index) => (
                         <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                          <div>
-                            <p className="font-medium text-gray-900">{item.products.name}</p>
-                            <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                          <div className="flex items-center">
+                            <img
+                              src={item.products.image_url}
+                              alt={item.products.name}
+                              className="w-10 h-10 object-cover rounded mr-3"
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg';
+                              }}
+                            />
+                            <div>
+                              <p className="font-medium text-gray-900">{item.products.name}</p>
+                              <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                            </div>
                           </div>
                           <p className="font-semibold text-gray-900">
                             Ksh {(item.price * item.quantity).toLocaleString()}

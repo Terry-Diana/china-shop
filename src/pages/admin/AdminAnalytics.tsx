@@ -49,6 +49,28 @@ const AdminAnalytics = () => {
 
   useEffect(() => {
     fetchAnalyticsData();
+    
+    // Set up real-time subscriptions
+    const ordersChannel = supabase
+      .channel('analytics-orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchAnalyticsData)
+      .subscribe();
+
+    const usersChannel = supabase
+      .channel('analytics-users')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchAnalyticsData)
+      .subscribe();
+
+    const productsChannel = supabase
+      .channel('analytics-products')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAnalyticsData)
+      .subscribe();
+
+    return () => {
+      ordersChannel.unsubscribe();
+      usersChannel.unsubscribe();
+      productsChannel.unsubscribe();
+    };
   }, [timeRange]);
 
   const fetchAnalyticsData = async () => {
@@ -60,16 +82,28 @@ const AdminAnalytics = () => {
       const [
         { data: orders, error: ordersError },
         { data: users, error: usersError },
-        { data: products, error: productsError }
+        { data: categories, error: categoriesError },
+        { data: orderItems, error: orderItemsError }
       ] = await Promise.all([
         supabase.from('orders').select('*'),
         supabase.from('users').select('*'),
-        supabase.from('products').select('category_id, price')
+        supabase.from('categories').select('*'),
+        supabase.from('order_items').select(`
+          quantity,
+          price,
+          products!inner (
+            category_id,
+            categories!inner (
+              name
+            )
+          )
+        `)
       ]);
 
       if (ordersError) throw ordersError;
       if (usersError) throw usersError;
-      if (productsError) throw productsError;
+      if (categoriesError) throw categoriesError;
+      if (orderItemsError) throw orderItemsError;
 
       // Calculate analytics
       const totalSales = orders?.reduce((sum, order) => sum + order.total, 0) || 0;
@@ -81,7 +115,7 @@ const AdminAnalytics = () => {
       const salesByMonth = generateSalesByMonth(orders || []);
 
       // Generate category data
-      const categoryData = await generateCategoryData();
+      const categoryData = generateCategoryData(orderItems || []);
 
       // Generate recent activity
       const recentActivity = generateRecentActivity(orders || [], users || []);
@@ -124,39 +158,18 @@ const AdminAnalytics = () => {
     });
   };
 
-  const generateCategoryData = async () => {
-    try {
-      const { data: categories, error } = await supabase
-        .from('categories')
-        .select('id, name');
+  const generateCategoryData = (orderItems: any[]) => {
+    const categorySales: Record<string, number> = {};
 
-      if (error) throw error;
+    orderItems.forEach((item) => {
+      const categoryName = item.products?.categories?.name || 'Uncategorized';
+      const revenue = item.quantity * item.price;
+      categorySales[categoryName] = (categorySales[categoryName] || 0) + revenue;
+    });
 
-      // Get product count per category
-      const categoryData = await Promise.all(
-        (categories || []).map(async (category) => {
-          const { count } = await supabase
-            .from('products')
-            .select('*', { count: 'exact', head: true })
-            .eq('category_id', category.id);
-
-          return {
-            name: category.name,
-            value: count || 0
-          };
-        })
-      );
-
-      return categoryData.filter(item => item.value > 0);
-    } catch (error) {
-      console.error('Error generating category data:', error);
-      return [
-        { name: 'Electronics', value: 400 },
-        { name: 'Fashion', value: 300 },
-        { name: 'Home', value: 300 },
-        { name: 'Beauty', value: 200 },
-      ];
-    }
+    return Object.entries(categorySales)
+      .filter(([_, value]) => value > 0)
+      .map(([name, value]) => ({ name, value }));
   };
 
   const generateRecentActivity = (orders: any[], users: any[]) => {
@@ -341,7 +354,7 @@ const AdminAnalytics = () => {
 
         {/* Category Distribution */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-6">Products by Category</h2>
+          <h2 className="text-lg font-semibold mb-6">Sales by Category</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
