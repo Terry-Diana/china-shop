@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, Shield, AlertCircle, CheckCircle } from 'lucide-react';
 import Logo from '../../components/ui/Logo';
 import Button from '../../components/ui/Button';
-import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useAdminAuth, initializeAdminAuth } from '../../hooks/useAdminAuth';
 import { supabase } from '../../lib/supabase';
 
 // Environment variables
@@ -20,6 +20,11 @@ const AdminLogin = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { admin, setAdmin } = useAdminAuth();
+
+  // Initialize admin auth
+  useEffect(() => {
+    initializeAdminAuth();
+  }, []);
 
   // Redirect if already logged in
   useEffect(() => {

@@ -9,6 +9,7 @@ interface AdminAuthState {
   setAdmin: (admin: Admin | null) => void;
   logout: () => Promise<void>;
   registerAdmin: (email: string, password: string, name: string, role: 'admin' | 'super_admin') => Promise<void>;
+  checkAdminStatus: () => Promise<void>;
 }
 
 export const useAdminAuth = create<AdminAuthState>()(
@@ -22,26 +23,81 @@ export const useAdminAuth = create<AdminAuthState>()(
         set({ admin, loading: false });
       },
 
+      checkAdminStatus: async () => {
+        try {
+          console.log('🔍 useAdminAuth: Checking admin status...');
+          
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            console.error('❌ useAdminAuth: Session error:', sessionError);
+            set({ admin: null, loading: false });
+            return;
+          }
+
+          if (!session?.user) {
+            console.log('ℹ️ useAdminAuth: No active session');
+            set({ admin: null, loading: false });
+            return;
+          }
+
+          console.log('✅ useAdminAuth: Active session found, checking admin status');
+
+          // Check if user is admin in the admins table
+          const { data: adminData, error: adminError } = await supabase
+            .from('admins')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (adminError) {
+            if (adminError.code === 'PGRST116') {
+              console.log('ℹ️ useAdminAuth: User is not an admin');
+            } else {
+              console.error('❌ useAdminAuth: Admin lookup error:', adminError);
+            }
+            set({ admin: null, loading: false });
+            return;
+          }
+
+          if (adminData) {
+            console.log('✅ useAdminAuth: Admin status confirmed');
+            set({ admin: adminData, loading: false });
+          } else {
+            console.log('ℹ️ useAdminAuth: No admin record found');
+            set({ admin: null, loading: false });
+          }
+
+        } catch (error) {
+          console.error('💥 useAdminAuth: Error checking admin status:', error);
+          set({ admin: null, loading: false });
+        }
+      },
+
       logout: async () => {
         try {
           console.log('🚪 useAdminAuth: Logging out');
           const currentAdmin = get().admin;
           
-          set({ admin: null });
+          // Clear state immediately
+          set({ admin: null, loading: false });
           
           // Only sign out from Supabase if not using default credentials
           if (currentAdmin && currentAdmin.id !== 'default-super-admin') {
             await supabase.auth.signOut();
           }
           
-          localStorage.removeItem('admin-auth-storage');
+          // Clear all storage to prevent caching issues
+          localStorage.clear();
+          sessionStorage.clear();
+          
           console.log('✅ useAdminAuth: Logout successful');
         } catch (error) {
           console.error('💥 useAdminAuth: Logout error:', error);
-          // Even if logout fails, clear local state
-          set({ admin: null });
-          localStorage.removeItem('admin-auth-storage');
-          throw error;
+          // Even if logout fails, clear local state and storage
+          set({ admin: null, loading: false });
+          localStorage.clear();
+          sessionStorage.clear();
         }
       },
 
@@ -124,3 +180,30 @@ export const useAdminAuth = create<AdminAuthState>()(
     }
   )
 );
+
+// Initialize admin auth state and set up auth listener
+let authListenerInitialized = false;
+
+export const initializeAdminAuth = () => {
+  if (authListenerInitialized) return;
+  
+  authListenerInitialized = true;
+  
+  console.log('🔧 useAdminAuth: Initializing auth listener');
+  
+  // Check initial admin status
+  useAdminAuth.getState().checkAdminStatus();
+  
+  // Listen for auth state changes
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    console.log('🔄 useAdminAuth: Auth state change:', event, session?.user?.id);
+    
+    if (event === 'SIGNED_IN' && session?.user) {
+      // Check if the signed-in user is an admin
+      await useAdminAuth.getState().checkAdminStatus();
+    } else if (event === 'SIGNED_OUT') {
+      console.log('🚪 useAdminAuth: User signed out, clearing admin state');
+      useAdminAuth.getState().setAdmin(null);
+    }
+  });
+};

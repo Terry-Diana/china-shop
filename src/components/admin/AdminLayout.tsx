@@ -20,7 +20,7 @@ import Logo from '../ui/Logo';
 import { useState, useEffect } from 'react';
 import RegisterAdminModal from './RegisterAdminModal';
 import Button from '../ui/Button';
-import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useAdminAuth, initializeAdminAuth } from '../../hooks/useAdminAuth';
 import { useRealTimeData } from '../../hooks/useRealTimeData';
 
 const AdminLayout = () => {
@@ -30,6 +30,11 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const { admin, logout } = useAdminAuth();
   const { stats } = useRealTimeData();
+
+  // Initialize admin auth
+  useEffect(() => {
+    initializeAdminAuth();
+  }, []);
 
   // Preserve sidebar state in localStorage
   useEffect(() => {
@@ -88,10 +93,12 @@ const AdminLayout = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/admin/login');
+      // Force navigation to admin login and clear any cached state
+      window.location.href = '/admin/login';
     } catch (error) {
       console.error('Logout error:', error);
-      navigate('/admin/login');
+      // Force navigation even if logout fails
+      window.location.href = '/admin/login';
     }
   };
 

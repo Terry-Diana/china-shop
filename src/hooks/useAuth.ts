@@ -9,19 +9,10 @@ interface User {
   last_name?: string;
 }
 
-interface Admin {
-  id: string;
-  email: string;
-  name: string;
-  role: 'admin' | 'super_admin';
-}
-
 interface AuthState {
   user: User | null;
-  admin: Admin | null;
   loading: boolean;
   setUser: (user: User | null) => void;
-  setAdmin: (admin: Admin | null) => void;
   signUp: (email: string, password: string, userData?: Partial<User>) => Promise<any>;
   signIn: (email: string, password: string) => Promise<any>;
   signInWithProvider: (provider: 'google' | 'facebook') => Promise<any>;
@@ -32,10 +23,8 @@ export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      admin: null,
       loading: true,
-      setUser: (user) => set({ user }),
-      setAdmin: (admin) => set({ admin }),
+      setUser: (user) => set({ user, loading: false }),
       signUp: async (email: string, password: string, userData?: Partial<User>) => {
         try {
           const { data, error } = await supabase.auth.signUp({
@@ -136,7 +125,8 @@ export const useAuth = create<AuthState>()(
                 email: data.user.email!,
                 first_name: profile?.first_name || data.user.user_metadata?.first_name,
                 last_name: profile?.last_name || data.user.user_metadata?.last_name,
-              }
+              },
+              loading: false
             });
           }
 
@@ -160,7 +150,7 @@ export const useAuth = create<AuthState>()(
       logout: async () => {
         try {
           // Clear state first
-          set({ user: null, admin: null });
+          set({ user: null, loading: false });
           
           // Sign out from Supabase
           const { error } = await supabase.auth.signOut();
@@ -168,9 +158,9 @@ export const useAuth = create<AuthState>()(
             console.error('Supabase logout error:', error);
           }
           
-          // Clear all storage
-          localStorage.clear();
-          sessionStorage.clear();
+          // Clear specific storage items instead of all storage
+          localStorage.removeItem('auth-storage');
+          sessionStorage.removeItem('supabase.auth.token');
           
           // Force reload to ensure clean state
           window.location.href = '/';
@@ -183,6 +173,7 @@ export const useAuth = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      partialize: (state) => ({ user: state.user }),
     }
   )
 );

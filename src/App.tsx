@@ -6,7 +6,7 @@ import LoadingSpinner from './components/ui/LoadingSpinner';
 import ComparisonBar from './components/ui/ComparisonBar';
 import { CartProvider } from './contexts/CartContext';
 import { ProductProvider } from './contexts/ProductContext';
-import { useAdminAuth } from './hooks/useAdminAuth';
+import { useAdminAuth, initializeAdminAuth } from './hooks/useAdminAuth';
 
 // Lazy-loaded components
 const Home = lazy(() => import('./pages/Home'));
@@ -52,6 +52,9 @@ function App() {
   const location = useLocation();
 
   useEffect(() => {
+    // Initialize admin auth system
+    initializeAdminAuth();
+
     // Register service worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -64,7 +67,33 @@ function App() {
           });
       });
     }
+
+    // Clear any stale cache on app load to prevent caching issues
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => {
+          if (name.includes('workbox') || name.includes('runtime')) {
+            caches.delete(name);
+          }
+        });
+      });
+    }
   }, []);
+
+  // Prevent caching issues by adding cache-busting headers
+  useEffect(() => {
+    // Add no-cache headers for admin routes
+    if (location.pathname.startsWith('/admin')) {
+      const metaTag = document.createElement('meta');
+      metaTag.httpEquiv = 'Cache-Control';
+      metaTag.content = 'no-cache, no-store, must-revalidate';
+      document.head.appendChild(metaTag);
+
+      return () => {
+        document.head.removeChild(metaTag);
+      };
+    }
+  }, [location.pathname]);
 
   return (
     <ProductProvider>
