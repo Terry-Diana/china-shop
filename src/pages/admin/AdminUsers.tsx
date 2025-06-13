@@ -53,6 +53,7 @@ const AdminUsers = () => {
         schema: 'public', 
         table: 'users' 
       }, () => {
+        console.log('🔄 Users: Real-time update triggered');
         fetchUsers();
       })
       .subscribe();
@@ -66,12 +67,15 @@ const AdminUsers = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('👥 Users: Fetching users data...');
 
       // Fetch users with their order statistics
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
+
+      console.log('👥 Users: Users fetched:', usersData?.length || 0, usersError);
 
       if (usersError) throw usersError;
 
@@ -103,9 +107,10 @@ const AdminUsers = () => {
         })
       );
 
+      console.log('👥 Users: Users with stats calculated:', usersWithStats.length);
       setUsers(usersWithStats);
     } catch (err: any) {
-      console.error('Error fetching users:', err);
+      console.error('💥 Users: Error fetching users:', err);
       setError(err.message || 'Failed to fetch users');
     } finally {
       setLoading(false);

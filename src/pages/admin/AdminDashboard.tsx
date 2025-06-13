@@ -74,6 +74,11 @@ const AdminDashboard = () => {
   const fetchStaticData = useCallback(async () => {
     try {
       setError(null);
+      console.log('🔍 Dashboard: Fetching static data...');
+
+      // Use service role for admin queries
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔐 Dashboard: Current session:', session?.user?.id);
 
       const [
         { data: ordersData, error: ordersError },
@@ -85,9 +90,27 @@ const AdminDashboard = () => {
         supabase.from('products').select('*')
       ]);
 
-      if (ordersError) throw ordersError;
-      if (usersError) throw usersError;
-      if (productsError) throw productsError;
+      console.log('📊 Dashboard: Data fetched:', {
+        orders: ordersData?.length || 0,
+        users: usersData?.length || 0,
+        products: productsData?.length || 0,
+        ordersError,
+        usersError,
+        productsError
+      });
+
+      if (ordersError) {
+        console.error('❌ Dashboard: Orders error:', ordersError);
+        throw ordersError;
+      }
+      if (usersError) {
+        console.error('❌ Dashboard: Users error:', usersError);
+        throw usersError;
+      }
+      if (productsError) {
+        console.error('❌ Dashboard: Products error:', productsError);
+        throw productsError;
+      }
 
       const orders = ordersData as Order[] | null;
       const users = usersData as User[] | null;
@@ -95,15 +118,18 @@ const AdminDashboard = () => {
 
       const totalRevenue = orders?.reduce((sum, order) => sum + order.total, 0) || 0;
 
-      setStaticStats({
+      const stats = {
         totalRevenue,
         totalOrders: orders?.length || 0,
         totalUsers: users?.length || 0,
         totalProducts: products?.length || 0
-      });
+      };
+
+      console.log('✅ Dashboard: Calculated stats:', stats);
+      setStaticStats(stats);
 
     } catch (err) {
-      console.error('Error fetching static data:', err);
+      console.error('💥 Dashboard: Error fetching static data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     }
   }, []);
@@ -120,14 +146,21 @@ const AdminDashboard = () => {
         default: startDate.setDate(today.getDate() - 7);
       }
 
+      console.log('📈 Dashboard: Fetching sales data for range:', timeRange);
+
       const { data, error } = await supabase
         .from('orders')
         .select('*')
         .gte('created_at', startDate.toISOString())
         .lte('created_at', today.toISOString());
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Dashboard: Sales data error:', error);
+        throw error;
+      }
+
       const orders = data as Order[] | null;
+      console.log('📈 Dashboard: Sales orders fetched:', orders?.length || 0);
 
       const groupedData: Record<string, { sales: number; orders: number }> = {};
 
@@ -157,13 +190,16 @@ const AdminDashboard = () => {
         groupedData[key].orders += 1;
       });
 
-      setSalesData(Object.entries(groupedData).map(([name, values]) => ({
+      const salesChartData = Object.entries(groupedData).map(([name, values]) => ({
         name,
         sales: values.sales,
         orders: values.orders
-      })));
+      }));
+
+      console.log('📈 Dashboard: Sales chart data:', salesChartData);
+      setSalesData(salesChartData);
     } catch (err) {
-      console.error('Error fetching sales data:', err);
+      console.error('💥 Dashboard: Error fetching sales data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load sales data');
     }
   }, [timeRange]);
@@ -171,6 +207,7 @@ const AdminDashboard = () => {
   const fetchCategoryData = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('🏷️ Dashboard: Fetching category data...');
       
       // Fetch categories and order items with product information
       const [
@@ -192,8 +229,21 @@ const AdminDashboard = () => {
           `)
       ]);
 
-      if (categoriesError) throw categoriesError;
-      if (orderItemsError) throw orderItemsError;
+      console.log('🏷️ Dashboard: Category data fetched:', {
+        categories: categoriesData?.length || 0,
+        orderItems: orderItemsData?.length || 0,
+        categoriesError,
+        orderItemsError
+      });
+
+      if (categoriesError) {
+        console.error('❌ Dashboard: Categories error:', categoriesError);
+        throw categoriesError;
+      }
+      if (orderItemsError) {
+        console.error('❌ Dashboard: Order items error:', orderItemsError);
+        throw orderItemsError;
+      }
 
       const categories = categoriesData as Category[] | null;
       const orderItems = orderItemsData as any[] | null;
@@ -221,9 +271,10 @@ const AdminDashboard = () => {
           color: COLORS[index % COLORS.length]
         }));
 
+      console.log('🏷️ Dashboard: Category chart data:', chartData);
       setCategoryData(chartData);
     } catch (err) {
-      console.error('Error fetching category data:', err);
+      console.error('💥 Dashboard: Error fetching category data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load category data');
     } finally {
       setLoading(false);
@@ -232,6 +283,7 @@ const AdminDashboard = () => {
 
   // Initial data fetch
   useEffect(() => {
+    console.log('🚀 Dashboard: Initial data fetch');
     fetchStaticData();
     fetchSalesData();
     fetchCategoryData();
@@ -239,7 +291,10 @@ const AdminDashboard = () => {
 
   // Real-time subscriptions for all relevant tables
   useEffect(() => {
+    console.log('🔄 Dashboard: Setting up real-time subscriptions');
+    
     const refetchAllData = () => {
+      console.log('🔄 Dashboard: Real-time update triggered');
       fetchStaticData();
       fetchSalesData();
       fetchCategoryData();
