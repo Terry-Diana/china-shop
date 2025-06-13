@@ -6,6 +6,8 @@ const MAX_ITEMS = 4;
 
 export const useProductComparison = () => {
   const [comparisonList, setComparisonList] = useState<Product[]>([]);
+  const [showComparisonPrompt, setShowComparisonPrompt] = useState(false);
+  const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -30,6 +32,13 @@ export const useProductComparison = () => {
       
       const updated = [...prev, product];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      
+      // Show prompt if this is the first item
+      if (prev.length === 0) {
+        setPendingProduct(product);
+        setShowComparisonPrompt(true);
+      }
+      
       return updated;
     });
   };
@@ -45,10 +54,17 @@ export const useProductComparison = () => {
   const clearComparison = () => {
     setComparisonList([]);
     localStorage.removeItem(STORAGE_KEY);
+    setShowComparisonPrompt(false);
+    setPendingProduct(null);
   };
 
   const isInComparison = (productId: number) => {
     return comparisonList.some(p => p.id === productId);
+  };
+
+  const dismissPrompt = () => {
+    setShowComparisonPrompt(false);
+    setPendingProduct(null);
   };
 
   return {
@@ -58,5 +74,8 @@ export const useProductComparison = () => {
     clearComparison,
     isInComparison,
     canAddMore: comparisonList.length < MAX_ITEMS,
+    showComparisonPrompt,
+    pendingProduct,
+    dismissPrompt,
   };
 };

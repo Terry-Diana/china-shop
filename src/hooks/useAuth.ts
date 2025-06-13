@@ -17,6 +17,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<any>;
   signInWithProvider: (provider: 'google' | 'facebook') => Promise<any>;
   logout: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 
 export const useAuth = create<AuthState>()(
@@ -25,6 +26,43 @@ export const useAuth = create<AuthState>()(
       user: null,
       loading: true,
       setUser: (user) => set({ user, loading: false }),
+      
+      refreshSession: async () => {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error('Session refresh error:', error);
+            set({ user: null, loading: false });
+            return;
+          }
+
+          if (session?.user) {
+            // Fetch user profile
+            const { data: profile } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+
+            set({ 
+              user: {
+                id: session.user.id,
+                email: session.user.email!,
+                first_name: profile?.first_name || session.user.user_metadata?.first_name,
+                last_name: profile?.last_name || session.user.user_metadata?.last_name,
+              },
+              loading: false
+            });
+          } else {
+            set({ user: null, loading: false });
+          }
+        } catch (error) {
+          console.error('Error refreshing session:', error);
+          set({ user: null, loading: false });
+        }
+      },
+
       signUp: async (email: string, password: string, userData?: Partial<User>) => {
         try {
           const { data, error } = await supabase.auth.signUp({
@@ -65,6 +103,7 @@ export const useAuth = create<AuthState>()(
           throw error;
         }
       },
+      
       signIn: async (email: string, password: string) => {
         try {
           const { data, error } = await supabase.auth.signInWithPassword({
@@ -136,6 +175,7 @@ export const useAuth = create<AuthState>()(
           throw error;
         }
       },
+      
       signInWithProvider: async (provider: 'google' | 'facebook') => {
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider,
@@ -147,6 +187,7 @@ export const useAuth = create<AuthState>()(
         if (error) throw error;
         return data;
       },
+      
       logout: async () => {
         try {
           // Clear state first
@@ -162,23 +203,44 @@ export const useAuth = create<AuthState>()(
           localStorage.removeItem('auth-storage');
           sessionStorage.removeItem('supabase.auth.token');
           
-          // Force reload to ensure clean state
-          window.location.href = '/';
+          // Clear any cached data
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(
+              cacheNames.map(name => caches.delete(name))
+            );
+          }
+          
         } catch (error) {
           console.error('Logout error:', error);
-          // Force reload even if there's an error
-          window.location.href = '/';
+          // Force clear state even if there's an error
+          set({ user: null, loading: false });
         }
       },
     }),
     {
       name: 'auth-storage',
       partialize: (state) => ({ user: state.user }),
+      // Add version to force cache invalidation when needed
+      version: 1,
     }
   )
 );
 
-// Initialize auth state
+// Initialize auth state with session refresh
+let authInitialized = false;
+
+const initializeAuth = async () => {
+  if (authInitialized) return;
+  authInitialized = true;
+  
+  console.log('🔧 Auth: Initializing auth state');
+  
+  // Refresh session on initialization
+  await useAuth.getState().refreshSession();
+};
+
+// Initialize auth and set up auth listener
 supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('Auth state change:', event, session?.user?.id);
   
@@ -233,7 +295,13 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     }
   } else if (event === 'SIGNED_OUT') {
     useAuth.getState().setUser(null);
+  } else if (event === 'TOKEN_REFRESHED') {
+    // Refresh user data when token is refreshed
+    await useAuth.getState().refreshSession();
   }
   
   useAuth.setState({ loading: false });
 });
+
+// Initialize auth
+initializeAuth();

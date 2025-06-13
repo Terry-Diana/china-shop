@@ -38,6 +38,7 @@ const AdminInventory = () => {
   const [error, setError] = useState<string | null>(null);
   const [updatingStock, setUpdatingStock] = useState<number | null>(null);
   const [stockValues, setStockValues] = useState<Record<number, number>>({});
+  const [updateSuccess, setUpdateSuccess] = useState<number | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -109,10 +110,12 @@ const AdminInventory = () => {
         p.id === productId ? { ...p, stock: newStock } : p
       ));
 
-      alert('Stock updated successfully!');
+      // Show success indicator
+      setUpdateSuccess(productId);
+      setTimeout(() => setUpdateSuccess(null), 3000);
     } catch (error: any) {
       console.error('Error updating stock:', error);
-      alert('Failed to update stock. Please try again.');
+      alert(`Failed to update stock: ${error.message}`);
     } finally {
       setUpdatingStock(null);
     }
@@ -370,12 +373,13 @@ const AdminInventory = () => {
                           className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                         <Button 
-                          variant="outline" 
+                          variant={updateSuccess === product.id ? "success" : "outline"}
                           size="sm"
                           onClick={() => updateStock(product.id)}
                           disabled={updatingStock === product.id}
                         >
-                          {updatingStock === product.id ? 'Updating...' : 'Update'}
+                          {updatingStock === product.id ? 'Updating...' : 
+                           updateSuccess === product.id ? 'Updated!' : 'Update'}
                         </Button>
                       </div>
                     </td>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'china-square-v1';
+const CACHE_NAME = 'china-square-v2';
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',
@@ -9,9 +9,15 @@ const urlsToCache = [
 
 // Install event
 self.addEventListener('install', (event) => {
+  console.log('Service Worker: Installing...');
+  
+  // Skip waiting to ensure the new service worker activates immediately
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
+        console.log('Service Worker: Caching files');
         return cache.addAll(urlsToCache);
       })
   );
@@ -19,6 +25,13 @@ self.addEventListener('install', (event) => {
 
 // Fetch event
 self.addEventListener('fetch', (event) => {
+  // Don't cache API requests or admin routes
+  if (event.request.url.includes('/api/') || 
+      event.request.url.includes('/admin/') ||
+      event.request.url.includes('supabase.co')) {
+    return;
+  }
+  
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -49,11 +62,17 @@ self.addEventListener('fetch', (event) => {
 
 // Activate event
 self.addEventListener('activate', (event) => {
+  console.log('Service Worker: Activating...');
+  
+  // Claim clients to ensure the service worker controls all clients immediately
+  self.clients.claim();
+  
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
+            console.log('Service Worker: Clearing old cache', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -114,6 +133,20 @@ self.addEventListener('notificationclick', (event) => {
   if (event.action === 'explore') {
     event.waitUntil(
       clients.openWindow('/')
+    );
+  }
+});
+
+// Message event for cache invalidation
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CLEAR_CACHE') {
+    console.log('Service Worker: Clearing cache by request');
+    event.waitUntil(
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => caches.delete(cacheName))
+        );
+      })
     );
   }
 });

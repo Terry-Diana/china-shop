@@ -89,11 +89,43 @@ function App() {
       metaTag.content = 'no-cache, no-store, must-revalidate';
       document.head.appendChild(metaTag);
 
+      // Add Pragma and Expires headers for older browsers
+      const pragmaTag = document.createElement('meta');
+      pragmaTag.httpEquiv = 'Pragma';
+      pragmaTag.content = 'no-cache';
+      document.head.appendChild(pragmaTag);
+
+      const expiresTag = document.createElement('meta');
+      expiresTag.httpEquiv = 'Expires';
+      expiresTag.content = '0';
+      document.head.appendChild(expiresTag);
+
       return () => {
         document.head.removeChild(metaTag);
+        document.head.removeChild(pragmaTag);
+        document.head.removeChild(expiresTag);
       };
     }
   }, [location.pathname]);
+
+  // Set up session refresh interval to prevent token expiration
+  useEffect(() => {
+    // Refresh auth token every 10 minutes
+    const refreshInterval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error) {
+          console.error('Session refresh error:', error);
+        } else {
+          console.log('Session refreshed successfully');
+        }
+      } catch (err) {
+        console.error('Error refreshing session:', err);
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, []);
 
   return (
     <ProductProvider>

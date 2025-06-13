@@ -10,6 +10,7 @@ interface AdminAuthState {
   logout: () => Promise<void>;
   registerAdmin: (email: string, password: string, name: string, role: 'admin' | 'super_admin') => Promise<void>;
   checkAdminStatus: () => Promise<void>;
+  refreshAdminSession: () => Promise<void>;
 }
 
 export const useAdminAuth = create<AdminAuthState>()(
@@ -21,6 +22,55 @@ export const useAdminAuth = create<AdminAuthState>()(
       setAdmin: (admin) => {
         console.log('🔧 useAdminAuth: Setting admin:', admin);
         set({ admin, loading: false });
+      },
+
+      refreshAdminSession: async () => {
+        try {
+          console.log('🔄 useAdminAuth: Refreshing admin session...');
+          
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            console.error('❌ useAdminAuth: Session error:', sessionError);
+            set({ admin: null, loading: false });
+            return;
+          }
+
+          if (!session?.user) {
+            console.log('ℹ️ useAdminAuth: No active session');
+            set({ admin: null, loading: false });
+            return;
+          }
+
+          // Check if user is admin in the admins table
+          const { data: adminData, error: adminError } = await supabase
+            .from('admins')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (adminError) {
+            if (adminError.code === 'PGRST116') {
+              console.log('ℹ️ useAdminAuth: User is not an admin');
+            } else {
+              console.error('❌ useAdminAuth: Admin lookup error:', adminError);
+            }
+            set({ admin: null, loading: false });
+            return;
+          }
+
+          if (adminData) {
+            console.log('✅ useAdminAuth: Admin session refreshed');
+            set({ admin: adminData, loading: false });
+          } else {
+            console.log('ℹ️ useAdminAuth: No admin record found');
+            set({ admin: null, loading: false });
+          }
+
+        } catch (error) {
+          console.error('💥 useAdminAuth: Error refreshing admin session:', error);
+          set({ admin: null, loading: false });
+        }
       },
 
       checkAdminStatus: async () => {
@@ -87,17 +137,25 @@ export const useAdminAuth = create<AdminAuthState>()(
             await supabase.auth.signOut();
           }
           
-          // Clear all storage to prevent caching issues
-          localStorage.clear();
-          sessionStorage.clear();
+          // Clear specific storage items to prevent caching issues
+          localStorage.removeItem('admin-auth-storage');
+          sessionStorage.removeItem('supabase.auth.token');
+          
+          // Clear any cached data
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(
+              cacheNames.map(name => caches.delete(name))
+            );
+          }
           
           console.log('✅ useAdminAuth: Logout successful');
         } catch (error) {
           console.error('💥 useAdminAuth: Logout error:', error);
           // Even if logout fails, clear local state and storage
           set({ admin: null, loading: false });
-          localStorage.clear();
-          sessionStorage.clear();
+          localStorage.removeItem('admin-auth-storage');
+          sessionStorage.removeItem('supabase.auth.token');
         }
       },
 
@@ -172,6 +230,8 @@ export const useAdminAuth = create<AdminAuthState>()(
     {
       name: 'admin-auth-storage',
       partialize: (state) => ({ admin: state.admin }),
+      // Add version to force cache invalidation when needed
+      version: 1,
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.loading = false;
@@ -204,6 +264,9 @@ export const initializeAdminAuth = () => {
     } else if (event === 'SIGNED_OUT') {
       console.log('🚪 useAdminAuth: User signed out, clearing admin state');
       useAdminAuth.getState().setAdmin(null);
+    } else if (event === 'TOKEN_REFRESHED') {
+      // Refresh admin session when token is refreshed
+      await useAdminAuth.getState().refreshAdminSession();
     }
   });
 };

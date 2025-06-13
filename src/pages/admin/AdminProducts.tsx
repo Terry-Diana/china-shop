@@ -65,6 +65,23 @@ const AdminProducts = () => {
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('products-realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'products' 
+      }, () => {
+        console.log('🔄 Products: Real-time update triggered');
+        fetchProducts();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchProducts = async () => {
@@ -157,6 +174,34 @@ const AdminProducts = () => {
     return matchesSearch && matchesCategory;
   });
 
+  const uploadImage = async (file: File): Promise<string> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('Image upload error:', uploadError);
+        // Return a fallback image URL if upload fails
+        return 'https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg';
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      // Return a fallback image URL if upload fails
+      return 'https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg';
+    }
+  };
+
   const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -164,27 +209,11 @@ const AdminProducts = () => {
     try {
       const formData = new FormData(e.target as HTMLFormElement);
       
-      let imageUrl = selectedProduct?.image_url || '';
+      let imageUrl = selectedProduct?.image_url || 'https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg';
       
       // Upload image if a new one was selected
       if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `products/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('product-images')
-          .upload(filePath, imageFile);
-
-        if (uploadError) {
-          console.error('Image upload error:', uploadError);
-          // Continue without image if upload fails
-        } else {
-          const { data: { publicUrl } } = supabase.storage
-            .from('product-images')
-            .getPublicUrl(filePath);
-          imageUrl = publicUrl;
-        }
+        imageUrl = await uploadImage(imageFile);
       }
 
       const productData = {
@@ -198,14 +227,18 @@ const AdminProducts = () => {
         is_new: formData.get('isNew') === 'on',
         is_best_seller: formData.get('isBestSeller') === 'on',
         image_url: imageUrl,
-        slug: (formData.get('name') as string).toLowerCase().replace(/\s+/g, '-'),
-        discount: 0 // Calculate discount if needed
+        slug: (formData.get('name') as string).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+        discount: 0,
+        rating: selectedProduct?.rating || 0,
+        review_count: selectedProduct?.review_count || 0
       };
 
       // Calculate discount
       if (productData.original_price && productData.original_price > productData.price) {
         productData.discount = Math.round(((productData.original_price - productData.price) / productData.original_price) * 100);
       }
+
+      console.log('Submitting product data:', productData);
 
       if (selectedProduct) {
         // Update existing product
@@ -214,7 +247,10 @@ const AdminProducts = () => {
           .update(productData)
           .eq('id', selectedProduct.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Product update error:', error);
+          throw error;
+        }
         alert('Product updated successfully!');
       } else {
         // Create new product
@@ -222,7 +258,10 @@ const AdminProducts = () => {
           .from('products')
           .insert(productData);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Product creation error:', error);
+          throw error;
+        }
         alert('Product created successfully!');
       }
       
@@ -233,7 +272,7 @@ const AdminProducts = () => {
       await fetchProducts();
     } catch (error: any) {
       console.error('Error saving product:', error);
-      alert('Error saving product. Please try again.');
+      alert(`Error saving product: ${error.message}. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -676,7 +715,7 @@ const AdminProducts = () => {
                   </label>
                   <div 
                     {...getImageRootProps()}
-                    className={`border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors ${
+                    className={`border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors cursor-pointer ${
                       isImageDragActive ? 'border-primary bg-primary-50' : 'border-gray-300'
                     }`}
                   >
