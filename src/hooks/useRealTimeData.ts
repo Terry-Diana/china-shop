@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 export interface RealTimeStats {
   todayOrders: number;
@@ -18,61 +18,67 @@ export const useRealTimeData = () => {
     todayOrders: 0,
     todayUsers: 0,
     todayRevenue: 0,
-    recentActivity: []
+    recentActivity: [],
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRealTimeStats = async () => {
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
+    return `${Math.floor(diffInMinutes / 1440)} days ago`;
+  };
+
+  const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      // Get today's date range
+      
+      // Get current date
       const today = new Date();
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const todayEnd = new Date(todayStart);
-      todayEnd.setDate(todayEnd.getDate() + 1);
 
-      // Fetch today's orders
-      const { data: todayOrders, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .gte('created_at', todayStart.toISOString())
-        .lt('created_at', todayEnd.toISOString());
+      // Fetch all required data
+      const [
+        { data: todayOrders, error: ordersError },
+        { data: todayUsers, error: usersError },
+        { data: recentOrders, error: recentOrdersError }
+      ] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('*')
+          .gte('created_at', todayStart.toISOString()),
+        supabase
+          .from('users')
+          .select('*')
+          .gte('created_at', todayStart.toISOString()),
+        supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5)
+      ]);
 
+      // Handle errors
       if (ordersError) throw ordersError;
-
-      // Fetch today's users
-      const { data: todayUsers, error: usersError } = await supabase
-        .from('users')
-        .select('*')
-        .gte('created_at', todayStart.toISOString())
-        .lt('created_at', todayEnd.toISOString());
-
       if (usersError) throw usersError;
+      if (recentOrdersError) throw recentOrdersError;
 
       // Calculate today's revenue
       const todayRevenue = todayOrders?.reduce((sum, order) => sum + order.total, 0) || 0;
 
-      // Get recent activity from orders
-      const { data: recentOrders, error: recentError } = await supabase
-        .from('orders')
-        .select('id, tracking_number, total, created_at, users(first_name, last_name)')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (recentError) throw recentError;
-
       // Format recent activity
-      const recentActivity = recentOrders?.map((order, index) => ({
+      const recentActivity = (recentOrders || []).map(order => ({
         id: order.id.toString(),
-        action: `New order ${order.tracking_number || `#${order.id}`}`,
-        user: order.users?.first_name ? 
-          `${order.users.first_name} ${order.users.last_name || ''}`.trim() : 
-          'Customer',
+        action: `New order #${order.tracking_number || order.id}`,
+        user: 'Customer',
         time: formatTimeAgo(order.created_at)
-      })) || [];
+      }));
 
       setStats({
         todayOrders: todayOrders?.length || 0,
@@ -81,42 +87,42 @@ export const useRealTimeData = () => {
         recentActivity
       });
 
-    } catch (err: any) {
-      console.error('Error fetching real-time stats:', err);
-      setError(err.message || 'Failed to fetch real-time data');
+    } catch (err) {
+      console.error('Error fetching real-time data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load real-time data');
     } finally {
       setLoading(false);
     }
   };
 
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    return `${Math.floor(diffInMinutes / 1440)}d ago`;
-  };
-
-  const refetch = () => {
-    fetchRealTimeStats();
-  };
-
-  // Initial fetch
   useEffect(() => {
-    fetchRealTimeStats();
+    // Initial fetch
+    fetchData();
+
+    // Set up real-time subscriptions for ALL operations
+    const ordersSubscription = supabase
+      .channel('realtime-orders')
+      .on('postgres_changes', { 
+        event: '*',  // Listen to INSERT, UPDATE, DELETE
+        schema: 'public', 
+        table: 'orders' 
+      }, fetchData)
+      .subscribe();
+
+    const usersSubscription = supabase
+      .channel('realtime-users')
+      .on('postgres_changes', { 
+        event: '*',  // Listen to INSERT, UPDATE, DELETE
+        schema: 'public', 
+        table: 'users' 
+      }, fetchData)
+      .subscribe();
+
+    return () => {
+      ordersSubscription.unsubscribe();
+      usersSubscription.unsubscribe();
+    };
   }, []);
 
-  // Set up real-time updates every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchRealTimeStats();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return { stats, loading, error, refetch };
+  return { stats, loading, error, refetch: fetchData };
 };
