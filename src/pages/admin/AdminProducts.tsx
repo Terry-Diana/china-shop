@@ -61,6 +61,7 @@ const AdminProducts = () => {
   const [error, setError] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [updateSuccess, setUpdateSuccess] = useState<number | null>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -252,17 +253,30 @@ const AdminProducts = () => {
           console.error('Product update error:', error);
           throw error;
         }
+        
+        // Show success indicator
+        setUpdateSuccess(selectedProduct.id);
+        setTimeout(() => setUpdateSuccess(null), 3000);
+        
         alert('Product updated successfully!');
       } else {
         // Create new product
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('products')
-          .insert(productData);
+          .insert(productData)
+          .select();
 
         if (error) {
           console.error('Product creation error:', error);
           throw error;
         }
+        
+        if (data && data[0]) {
+          // Show success indicator
+          setUpdateSuccess(data[0].id);
+          setTimeout(() => setUpdateSuccess(null), 3000);
+        }
+        
         alert('Product created successfully!');
       }
       
@@ -305,6 +319,7 @@ const AdminProducts = () => {
 
   const handleEditFromQuickView = (product: Product) => {
     setSelectedProduct(product);
+    setImagePreview(product.image_url || '');
     setShowQuickView(false);
     setShowProductForm(true);
   };
@@ -331,6 +346,7 @@ const AdminProducts = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  // Show loading only if we're actually loading and have no products yet
   if (loading && products.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">

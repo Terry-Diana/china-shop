@@ -25,7 +25,7 @@ export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      loading: true,
+      loading: false, // Start with false to prevent infinite loading
       
       setUser: (user) => set({ user, loading: false }),
       setLoading: (loading) => set({ loading }),
@@ -212,10 +212,10 @@ export const useAuth = create<AuthState>()(
     {
       name: 'auth-storage',
       partialize: (state) => ({ user: state.user }),
-      version: 2,
+      version: 3,
       migrate: (persistedState: any, version: number) => {
         // Handle migration from older versions
-        if (version === 0 || version === 1) {
+        if (version === 0 || version === 1 || version === 2) {
           return persistedState;
         }
         // For unknown versions, return a clean state

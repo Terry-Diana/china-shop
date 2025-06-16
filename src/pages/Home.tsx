@@ -20,7 +20,8 @@ const Home = () => {
   const bestSellers = products.filter(p => p.bestSeller).slice(0, 10);
   const deals = products.filter(p => p.discount > 0).slice(0, 10);
 
-  if (loading) {
+  // Show loading only if we're actually loading and have no products yet
+  if (loading && products.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>

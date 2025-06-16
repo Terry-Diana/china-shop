@@ -29,7 +29,7 @@ export interface Product {
 
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start with false
   const [error, setError] = useState<string | null>(null);
 
   const fetchProducts = async () => {

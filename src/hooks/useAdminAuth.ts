@@ -7,6 +7,7 @@ interface AdminAuthState {
   admin: Admin | null;
   loading: boolean;
   setAdmin: (admin: Admin | null) => void;
+  setLoading: (loading: boolean) => void;
   logout: () => Promise<void>;
   registerAdmin: (email: string, password: string, name: string, role: 'admin' | 'super_admin') => Promise<void>;
   checkAdminStatus: () => Promise<void>;
@@ -17,12 +18,14 @@ export const useAdminAuth = create<AdminAuthState>()(
   persist(
     (set, get) => ({
       admin: null,
-      loading: true,
+      loading: false, // Start with false to prevent infinite loading
 
       setAdmin: (admin) => {
         console.log('🔧 useAdminAuth: Setting admin:', admin);
         set({ admin, loading: false });
       },
+
+      setLoading: (loading) => set({ loading }),
 
       refreshAdminSession: async () => {
         try {
@@ -208,11 +211,11 @@ export const useAdminAuth = create<AdminAuthState>()(
     {
       name: 'admin-auth-storage',
       partialize: (state) => ({ admin: state.admin }),
-      version: 3,
+      version: 4,
       migrate: (persistedState: any, version: number) => {
         // Handle migration from older versions
-        if (version === 0 || version === 1 || version === 2) {
-          // For versions 0, 1, and 2, keep the existing state structure
+        if (version === 0 || version === 1 || version === 2 || version === 3) {
+          // For versions 0, 1, 2, and 3, keep the existing state structure
           return persistedState;
         }
         // For unknown versions, return a clean state
@@ -237,6 +240,9 @@ export const initializeAdminAuth = () => {
   
   console.log('🔧 useAdminAuth: Initializing auth listener');
   
+  // Set loading to false initially
+  useAdminAuth.getState().setLoading(false);
+  
   // Check initial admin status
   useAdminAuth.getState().checkAdminStatus();
   
@@ -254,5 +260,8 @@ export const initializeAdminAuth = () => {
       // Refresh admin session when token is refreshed
       await useAdminAuth.getState().refreshAdminSession();
     }
+    
+    // Always ensure loading is false
+    useAdminAuth.getState().setLoading(false);
   });
 };
