@@ -13,6 +13,7 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   setUser: (user: User | null) => void;
+  setLoading: (loading: boolean) => void;
   signUp: (email: string, password: string, userData?: Partial<User>) => Promise<any>;
   signIn: (email: string, password: string) => Promise<any>;
   signInWithProvider: (provider: 'google' | 'facebook') => Promise<any>;
@@ -25,7 +26,9 @@ export const useAuth = create<AuthState>()(
     (set, get) => ({
       user: null,
       loading: true,
+      
       setUser: (user) => set({ user, loading: false }),
+      setLoading: (loading) => set({ loading }),
       
       refreshSession: async () => {
         try {
@@ -221,8 +224,20 @@ export const useAuth = create<AuthState>()(
     {
       name: 'auth-storage',
       partialize: (state) => ({ user: state.user }),
-      // Add version to force cache invalidation when needed
       version: 1,
+      migrate: (persistedState: any, version: number) => {
+        // Handle migration from older versions
+        if (version === 0) {
+          return persistedState;
+        }
+        // For unknown versions, return a clean state
+        return { user: null };
+      },
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.loading = false;
+        }
+      }
     }
   )
 );
@@ -236,8 +251,16 @@ const initializeAuth = async () => {
   
   console.log('🔧 Auth: Initializing auth state');
   
+  // Set loading to false initially to prevent infinite loading
+  useAuth.getState().setLoading(false);
+  
   // Refresh session on initialization
-  await useAuth.getState().refreshSession();
+  try {
+    await useAuth.getState().refreshSession();
+  } catch (error) {
+    console.error('Error during auth initialization:', error);
+    useAuth.getState().setLoading(false);
+  }
 };
 
 // Initialize auth and set up auth listener
@@ -300,8 +323,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     await useAuth.getState().refreshSession();
   }
   
-  useAuth.setState({ loading: false });
+  useAuth.getState().setLoading(false);
 });
 
-// Initialize auth
+// Initialize auth immediately
 initializeAuth();
