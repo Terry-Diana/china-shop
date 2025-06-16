@@ -2,9 +2,11 @@ import { useEffect } from 'react';
 import HeroSection from '../components/home/HeroSection';
 import ProductCarousel from '../components/home/ProductCarousel';
 import CategoryGrid from '../components/home/CategoryGrid';
-import { mockProducts } from '../data/mockProducts';
+import { useProducts } from '../hooks/useProducts';
 
 const Home = () => {
+  const { products, loading } = useProducts();
+
   useEffect(() => {
     // Scroll to top when component mounts
     window.scrollTo(0, 0);
@@ -14,9 +16,17 @@ const Home = () => {
   }, []);
 
   // Filter products by categories for different sections
-  const newArrivals = mockProducts.filter(p => p.isNew).slice(0, 10);
-  const bestSellers = mockProducts.filter(p => p.bestSeller).slice(0, 10);
-  const deals = mockProducts.filter(p => p.discount > 0).slice(0, 10);
+  const newArrivals = products.filter(p => p.isNew).slice(0, 10);
+  const bestSellers = products.filter(p => p.bestSeller).slice(0, 10);
+  const deals = products.filter(p => p.discount > 0).slice(0, 10);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div>

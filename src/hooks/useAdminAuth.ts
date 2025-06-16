@@ -42,19 +42,15 @@ export const useAdminAuth = create<AdminAuthState>()(
             return;
           }
 
-          // Check if user is admin in the admins table
+          // Check if user is admin in the admins table - use maybeSingle() to handle no results gracefully
           const { data: adminData, error: adminError } = await supabase
             .from('admins')
             .select('*')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
 
           if (adminError) {
-            if (adminError.code === 'PGRST116') {
-              console.log('ℹ️ useAdminAuth: User is not an admin');
-            } else {
-              console.error('❌ useAdminAuth: Admin lookup error:', adminError);
-            }
+            console.error('❌ useAdminAuth: Admin lookup error:', adminError);
             set({ admin: null, loading: false });
             return;
           }
@@ -93,19 +89,15 @@ export const useAdminAuth = create<AdminAuthState>()(
 
           console.log('✅ useAdminAuth: Active session found, checking admin status');
 
-          // Check if user is admin in the admins table
+          // Check if user is admin in the admins table - use maybeSingle() to handle no results gracefully
           const { data: adminData, error: adminError } = await supabase
             .from('admins')
             .select('*')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
 
           if (adminError) {
-            if (adminError.code === 'PGRST116') {
-              console.log('ℹ️ useAdminAuth: User is not an admin');
-            } else {
-              console.error('❌ useAdminAuth: Admin lookup error:', adminError);
-            }
+            console.error('❌ useAdminAuth: Admin lookup error:', adminError);
             set({ admin: null, loading: false });
             return;
           }

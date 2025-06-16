@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, ShoppingCart, Share2, Star, CheckCircle, ChevronDown, ChevronUp, Truck, RotateCcw, Shield, AlertTriangle, BarChart3 } from 'lucide-react';
-import { mockProducts } from '../data/mockProducts';
+import { useProducts } from '../hooks/useProducts';
 import Button from '../components/ui/Button';
 import ProductCarousel from '../components/home/ProductCarousel';
 import TouchOptimizedCarousel from '../components/ui/TouchOptimizedCarousel';
@@ -18,14 +18,15 @@ const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { products, loading } = useProducts();
   const { addToCart } = useCart();
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
   const { addToRecentlyViewed } = useRecentlyViewed();
   const { addToComparison, isInComparison, canAddMore } = useProductComparison();
   const { trackProductView, trackAddToCart, trackAddToWishlist } = useAnalytics();
   
-  const [product, setProduct] = useState(mockProducts[0]);
-  const [relatedProducts, setRelatedProducts] = useState(mockProducts.slice(1, 6));
+  const [product, setProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [currentImage, setCurrentImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedTab, setSelectedTab] = useState('description');
@@ -33,8 +34,8 @@ const ProductDetail = () => {
   const [favoriteState, setFavoriteState] = useState<'default' | 'adding'>('default');
   
   useEffect(() => {
-    if (id) {
-      const foundProduct = mockProducts.find(p => p.id === parseInt(id)) || mockProducts[0];
+    if (id && products.length > 0) {
+      const foundProduct = products.find(p => p.id === parseInt(id)) || products[0];
       setProduct(foundProduct);
       
       // Add to recently viewed
@@ -43,7 +44,7 @@ const ProductDetail = () => {
       // Track product view
       trackProductView(foundProduct.id, foundProduct.name);
       
-      const related = mockProducts
+      const related = products
         .filter(p => p.category === foundProduct.category && p.id !== foundProduct.id)
         .slice(0, 5);
       setRelatedProducts(related);
@@ -52,7 +53,7 @@ const ProductDetail = () => {
       
       window.scrollTo(0, 0);
     }
-  }, [id, addToRecentlyViewed, trackProductView]);
+  }, [id, products, addToRecentlyViewed, trackProductView]);
   
   const increaseQuantity = () => {
     if (quantity < 10) setQuantity(quantity + 1);
@@ -68,7 +69,7 @@ const ProductDetail = () => {
       return;
     }
 
-    if (favoriteState === 'adding') return;
+    if (favoriteState === 'adding' || !product) return;
 
     setFavoriteState('adding');
 
@@ -92,7 +93,7 @@ const ProductDetail = () => {
       return;
     }
 
-    if (product.stock === 0 || buttonState !== 'default') {
+    if (!product || product.stock === 0 || buttonState !== 'default') {
       return;
     }
 
@@ -116,12 +117,13 @@ const ProductDetail = () => {
   };
 
   const handleAddToComparison = () => {
-    if (canAddMore && !isInComparison(product.id)) {
+    if (product && canAddMore && !isInComparison(product.id)) {
       addToComparison(product);
     }
   };
 
   const getCartButtonText = () => {
+    if (!product) return 'Loading...';
     if (product.stock === 0) return 'Out of Stock';
     if (buttonState === 'adding') return 'Adding to Cart...';
     if (buttonState === 'added') return 'Added to Cart';
@@ -129,11 +131,19 @@ const ProductDetail = () => {
   };
 
   const getCartButtonClass = () => {
-    if (product.stock === 0) return 'bg-gray-400 cursor-not-allowed';
+    if (!product || product.stock === 0) return 'bg-gray-400 cursor-not-allowed';
     if (buttonState === 'added') return 'bg-success hover:bg-success-dark';
     if (buttonState === 'adding') return 'bg-primary opacity-75 cursor-wait';
     return 'bg-primary hover:bg-primary-dark';
   };
+
+  if (loading || !product) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const images = product.images || [product.image];
 

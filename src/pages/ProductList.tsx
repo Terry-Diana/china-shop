@@ -4,7 +4,7 @@ import { Sliders, Filter, X, Check, Grid, List } from 'lucide-react';
 import ProductCard from '../components/product/ProductCard';
 import VirtualizedList from '../components/ui/VirtualizedList';
 import AdvancedFilters from '../components/ui/AdvancedFilters';
-import { mockProducts } from '../data/mockProducts';
+import { useProducts } from '../hooks/useProducts';
 import Button from '../components/ui/Button';
 import { useAnalytics } from '../hooks/useAnalytics';
 
@@ -14,10 +14,10 @@ const ProductList = () => {
   const searchParams = new URLSearchParams(location.search);
   const searchQuery = searchParams.get('search');
   const filterParam = searchParams.get('filter');
+  const { products, loading } = useProducts();
   const { trackSearch } = useAnalytics();
   
-  const [products, setProducts] = useState(mockProducts);
-  const [filteredProducts, setFilteredProducts] = useState(mockProducts);
+  const [filteredProducts, setFilteredProducts] = useState([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -34,12 +34,14 @@ const ProductList = () => {
   });
   
   // Extract unique brands and categories from products
-  const brands = [...new Set(mockProducts.map(product => product.brand))];
-  const categories = [...new Set(mockProducts.map(product => product.category))];
+  const brands = [...new Set(products.map(product => product.brand))];
+  const categories = [...new Set(products.map(product => product.category))];
   
   // Update filters when params change
   useEffect(() => {
-    let filtered = [...mockProducts];
+    if (products.length === 0) return;
+    
+    let filtered = [...products];
     
     // Filter by category
     if (category) {
@@ -75,7 +77,7 @@ const ProductList = () => {
       }
     }
     
-    setProducts(filtered);
+    setFilteredProducts(filtered);
     
     // Reset other filters
     setFilters({
@@ -99,11 +101,44 @@ const ProductList = () => {
     
     // Scroll to top when params change
     window.scrollTo(0, 0);
-  }, [category, searchQuery, filterParam, trackSearch]);
+  }, [category, searchQuery, filterParam, products, trackSearch]);
   
   // Apply filters
   useEffect(() => {
+    if (products.length === 0) return;
+    
     let result = [...products];
+    
+    // Filter by category first if specified
+    if (category) {
+      result = result.filter(p => 
+        p.category.toLowerCase() === category.toLowerCase()
+      );
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      result = result.filter(p => 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.description.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    // Filter by special filters (new, best-sellers, deals)
+    if (filterParam) {
+      switch (filterParam) {
+        case 'new':
+          result = result.filter(p => p.isNew);
+          break;
+        case 'best-sellers':
+          result = result.filter(p => p.bestSeller);
+          break;
+        case 'deals':
+        case 'sale':
+          result = result.filter(p => p.discount > 0);
+          break;
+      }
+    }
     
     // Apply price filter
     result = result.filter(p => 
@@ -160,7 +195,7 @@ const ProductList = () => {
     
     // Enable virtualization for large lists
     setUseVirtualization(result.length > 50);
-  }, [products, filters]);
+  }, [products, filters, category, searchQuery, filterParam]);
   
   // Generate page title
   const getPageTitle = () => {
@@ -186,6 +221,14 @@ const ProductList = () => {
       <ProductCard product={product} />
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">
