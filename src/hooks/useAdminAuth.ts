@@ -129,25 +129,11 @@ export const useAdminAuth = create<AdminAuthState>()(
             await supabase.auth.signOut();
           }
           
-          // Clear specific storage items to prevent caching issues
-          localStorage.removeItem('admin-auth-storage');
-          sessionStorage.removeItem('supabase.auth.token');
-          
-          // Clear any cached data
-          if ('caches' in window) {
-            const cacheNames = await caches.keys();
-            await Promise.all(
-              cacheNames.map(name => caches.delete(name))
-            );
-          }
-          
           console.log('✅ useAdminAuth: Logout successful');
         } catch (error) {
           console.error('💥 useAdminAuth: Logout error:', error);
-          // Even if logout fails, clear local state and storage
+          // Even if logout fails, clear local state
           set({ admin: null, loading: false });
-          localStorage.removeItem('admin-auth-storage');
-          sessionStorage.removeItem('supabase.auth.token');
         }
       },
 
@@ -222,12 +208,11 @@ export const useAdminAuth = create<AdminAuthState>()(
     {
       name: 'admin-auth-storage',
       partialize: (state) => ({ admin: state.admin }),
-      // Add version to force cache invalidation when needed
-      version: 2, // Increment version to force cache invalidation
+      version: 3,
       migrate: (persistedState: any, version: number) => {
         // Handle migration from older versions
-        if (version === 0 || version === 1) {
-          // For versions 0 and 1, keep the existing state structure
+        if (version === 0 || version === 1 || version === 2) {
+          // For versions 0, 1, and 2, keep the existing state structure
           return persistedState;
         }
         // For unknown versions, return a clean state

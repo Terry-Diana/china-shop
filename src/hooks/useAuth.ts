@@ -202,18 +202,6 @@ export const useAuth = create<AuthState>()(
             console.error('Supabase logout error:', error);
           }
           
-          // Clear specific storage items instead of all storage
-          localStorage.removeItem('auth-storage');
-          sessionStorage.removeItem('supabase.auth.token');
-          
-          // Clear any cached data
-          if ('caches' in window) {
-            const cacheNames = await caches.keys();
-            await Promise.all(
-              cacheNames.map(name => caches.delete(name))
-            );
-          }
-          
         } catch (error) {
           console.error('Logout error:', error);
           // Force clear state even if there's an error
@@ -224,10 +212,10 @@ export const useAuth = create<AuthState>()(
     {
       name: 'auth-storage',
       partialize: (state) => ({ user: state.user }),
-      version: 1,
+      version: 2,
       migrate: (persistedState: any, version: number) => {
         // Handle migration from older versions
-        if (version === 0) {
+        if (version === 0 || version === 1) {
           return persistedState;
         }
         // For unknown versions, return a clean state

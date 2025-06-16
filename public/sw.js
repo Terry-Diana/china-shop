@@ -1,4 +1,4 @@
-const CACHE_NAME = 'china-square-v2';
+const CACHE_NAME = 'china-square-v3';
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',
@@ -23,7 +23,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Fetch event
+// Fetch event with improved caching strategy
 self.addEventListener('fetch', (event) => {
   // Don't cache API requests or admin routes
   if (event.request.url.includes('/api/') || 
@@ -60,7 +60,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Activate event
+// Activate event with selective cache cleanup
 self.addEventListener('activate', (event) => {
   console.log('Service Worker: Activating...');
   
@@ -71,7 +71,8 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          // Only delete old cache versions, not all caches
+          if (cacheName !== CACHE_NAME && cacheName.startsWith('china-square-')) {
             console.log('Service Worker: Clearing old cache', cacheName);
             return caches.delete(cacheName);
           }
@@ -137,16 +138,9 @@ self.addEventListener('notificationclick', (event) => {
   }
 });
 
-// Message event for cache invalidation
+// Improved message event handling
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'CLEAR_CACHE') {
-    console.log('Service Worker: Clearing cache by request');
-    event.waitUntil(
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => caches.delete(cacheName))
-        );
-      })
-    );
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });

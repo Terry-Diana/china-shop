@@ -56,7 +56,7 @@ function App() {
     // Initialize admin auth system
     initializeAdminAuth();
 
-    // Register service worker
+    // Register service worker with proper cache management
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
@@ -70,9 +70,9 @@ function App() {
     }
   }, []);
 
-  // Set up session refresh interval to prevent token expiration
+  // Set up session refresh interval with longer intervals
   useEffect(() => {
-    // Refresh auth token every 30 minutes instead of 10
+    // Refresh auth token every 50 minutes (less frequent)
     const refreshInterval = setInterval(async () => {
       try {
         const { data, error } = await supabase.auth.refreshSession();
@@ -84,29 +84,10 @@ function App() {
       } catch (err) {
         console.error('Error refreshing session:', err);
       }
-    }, 30 * 60 * 1000); // 30 minutes
+    }, 50 * 60 * 1000); // 50 minutes
 
     return () => clearInterval(refreshInterval);
   }, []);
-
-  // Disable caching for admin routes
-  useEffect(() => {
-    if (location.pathname.startsWith('/admin')) {
-      // Add no-cache headers for admin routes
-      const metaTag = document.createElement('meta');
-      metaTag.httpEquiv = 'Cache-Control';
-      metaTag.content = 'no-cache, no-store, must-revalidate';
-      document.head.appendChild(metaTag);
-
-      return () => {
-        try {
-          document.head.removeChild(metaTag);
-        } catch (e) {
-          // Ignore if already removed
-        }
-      };
-    }
-  }, [location.pathname]);
 
   return (
     <ProductProvider>
