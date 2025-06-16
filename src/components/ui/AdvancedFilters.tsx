@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Filter, X, Star, Check } from 'lucide-react';
 import Button from './Button';
@@ -30,7 +30,12 @@ const AdvancedFilters = ({
   onClose,
   isOpen
 }: AdvancedFiltersProps) => {
-  const [localFilters, setLocalFilters] = useState(filters);
+  const [localFilters, setLocalFilters] = useState<FilterOptions>({...filters});
+  
+  // Update local filters when props change
+  useEffect(() => {
+    setLocalFilters({...filters});
+  }, [filters]);
 
   const handleApplyFilters = () => {
     onFiltersChange(localFilters);
@@ -76,13 +81,14 @@ const AdvancedFilters = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto"
         >
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-semibold flex items-center">

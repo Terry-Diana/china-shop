@@ -1,6 +1,31 @@
 import { useState, useEffect } from 'react';
-import { adminService } from '../services/adminService';
-import { Product } from '../types/admin';
+import { supabase } from '../lib/supabase';
+
+export interface Product {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  original_price: number | null;
+  discount: number;
+  category_id: number | null;
+  brand: string;
+  stock: number;
+  rating: number;
+  review_count: number;
+  is_new: boolean;
+  is_best_seller: boolean;
+  image_url: string;
+  created_at: string;
+  updated_at: string;
+  // Computed properties for compatibility
+  category: string;
+  originalPrice: number;
+  isNew: boolean;
+  bestSeller: boolean;
+  image: string;
+  reviewCount: number;
+}
 
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -10,66 +35,62 @@ export const useProducts = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const data = await adminService.getProducts();
-      setProducts(data);
       setError(null);
-    } catch (err) {
-      setError('Failed to fetch products');
+      
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select(`
+          *,
+          categories(name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (productsError) throw productsError;
+
+      // Transform data to match expected format
+      const transformedProducts = (productsData || []).map(product => ({
+        ...product,
+        category: product.categories?.name || 'Uncategorized',
+        originalPrice: product.original_price || product.price,
+        isNew: product.is_new,
+        bestSeller: product.is_best_seller,
+        image: product.image_url,
+        reviewCount: product.review_count,
+      }));
+
+      setProducts(transformedProducts);
+    } catch (err: any) {
       console.error('Error fetching products:', err);
+      setError(err.message || 'Failed to fetch products');
     } finally {
       setLoading(false);
     }
   };
 
-  const createProduct = async (product: Omit<Product, 'id'>) => {
-    try {
-      const newProduct = await adminService.createProduct(product);
-      setProducts([newProduct, ...products]);
-      return newProduct;
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  const updateProduct = async (id: number, updates: Partial<Product>) => {
-    try {
-      const updatedProduct = await adminService.updateProduct(id, updates);
-      setProducts(products.map(p => p.id === id ? updatedProduct : p));
-      return updatedProduct;
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  const deleteProduct = async (id: number) => {
-    try {
-      await adminService.deleteProduct(id);
-      setProducts(products.filter(p => p.id !== id));
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  const uploadImage = async (file: File) => {
-    try {
-      return await adminService.uploadProductImage(file);
-    } catch (err) {
-      throw err;
-    }
-  };
-
   useEffect(() => {
     fetchProducts();
+    
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('products-realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'products' 
+      }, () => {
+        fetchProducts();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   return {
     products,
     loading,
     error,
-    createProduct,
-    updateProduct,
-    deleteProduct,
-    uploadImage,
     refetch: fetchProducts,
   };
 };

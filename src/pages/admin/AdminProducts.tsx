@@ -168,6 +168,7 @@ const AdminProducts = () => {
   });
 
   const filteredProducts = products.filter(product => {
+    const category = categories.find(c => c.id === product.category_id);
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || product.category_id?.toString() === selectedCategory;

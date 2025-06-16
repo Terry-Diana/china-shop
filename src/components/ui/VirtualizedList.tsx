@@ -52,11 +52,18 @@ function VirtualizedList<T>({
     setScrollTop(e.currentTarget.scrollTop);
   };
 
+  // Ensure scroll position is maintained when items change
+  useEffect(() => {
+    if (scrollElementRef.current) {
+      scrollElementRef.current.scrollTop = scrollTop;
+    }
+  }, [items.length]);
+
   return (
     <div
       ref={scrollElementRef}
       className={`overflow-auto ${className}`}
-      style={{ height: containerHeight }}
+      style={{ height: containerHeight, maxHeight: '100%' }}
       onScroll={handleScroll}
     >
       <div style={{ height: totalHeight, position: 'relative' }}>

@@ -223,7 +223,7 @@ export const useAdminAuth = create<AdminAuthState>()(
       name: 'admin-auth-storage',
       partialize: (state) => ({ admin: state.admin }),
       // Add version to force cache invalidation when needed
-      version: 1,
+      version: 2, // Increment version to force cache invalidation
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.loading = false;

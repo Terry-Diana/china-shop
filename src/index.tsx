@@ -35,6 +35,34 @@ const clearServiceWorkerCache = () => {
 addCacheBustingHeaders();
 clearServiceWorkerCache();
 
+// Add a global cache buster to all fetch requests
+const originalFetch = window.fetch;
+window.fetch = function(input, init) {
+  // Add a cache buster to URL requests
+  if (typeof input === 'string' && !input.includes('supabase.co')) {
+    const separator = input.includes('?') ? '&' : '?';
+    input = `${input}${separator}_=${Date.now()}`;
+  }
+  
+  // Add cache control headers to all requests
+  if (!init) {
+    init = {};
+  }
+  if (!init.headers) {
+    init.headers = {};
+  }
+  
+  // Add the headers to prevent caching
+  init.headers = {
+    ...init.headers,
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  };
+  
+  return originalFetch.call(this, input, init);
+};
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

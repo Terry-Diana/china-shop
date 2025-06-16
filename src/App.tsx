@@ -68,50 +68,11 @@ function App() {
           });
       });
     }
-
-    // Clear any stale cache on app load to prevent caching issues
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        names.forEach(name => {
-          if (name.includes('workbox') || name.includes('runtime')) {
-            caches.delete(name);
-          }
-        });
-      });
-    }
   }, []);
-
-  // Prevent caching issues by adding cache-busting headers
-  useEffect(() => {
-    // Add no-cache headers for admin routes
-    if (location.pathname.startsWith('/admin')) {
-      const metaTag = document.createElement('meta');
-      metaTag.httpEquiv = 'Cache-Control';
-      metaTag.content = 'no-cache, no-store, must-revalidate';
-      document.head.appendChild(metaTag);
-
-      // Add Pragma and Expires headers for older browsers
-      const pragmaTag = document.createElement('meta');
-      pragmaTag.httpEquiv = 'Pragma';
-      pragmaTag.content = 'no-cache';
-      document.head.appendChild(pragmaTag);
-
-      const expiresTag = document.createElement('meta');
-      expiresTag.httpEquiv = 'Expires';
-      expiresTag.content = '0';
-      document.head.appendChild(expiresTag);
-
-      return () => {
-        document.head.removeChild(metaTag);
-        document.head.removeChild(pragmaTag);
-        document.head.removeChild(expiresTag);
-      };
-    }
-  }, [location.pathname]);
 
   // Set up session refresh interval to prevent token expiration
   useEffect(() => {
-    // Refresh auth token every 10 minutes
+    // Refresh auth token every 30 minutes instead of 10
     const refreshInterval = setInterval(async () => {
       try {
         const { data, error } = await supabase.auth.refreshSession();
@@ -123,10 +84,29 @@ function App() {
       } catch (err) {
         console.error('Error refreshing session:', err);
       }
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 30 * 60 * 1000); // 30 minutes
 
     return () => clearInterval(refreshInterval);
   }, []);
+
+  // Disable caching for admin routes
+  useEffect(() => {
+    if (location.pathname.startsWith('/admin')) {
+      // Add no-cache headers for admin routes
+      const metaTag = document.createElement('meta');
+      metaTag.httpEquiv = 'Cache-Control';
+      metaTag.content = 'no-cache, no-store, must-revalidate';
+      document.head.appendChild(metaTag);
+
+      return () => {
+        try {
+          document.head.removeChild(metaTag);
+        } catch (e) {
+          // Ignore if already removed
+        }
+      };
+    }
+  }, [location.pathname]);
 
   return (
     <ProductProvider>

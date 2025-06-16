@@ -96,6 +96,7 @@ const AdminOrders = () => {
         users: order.users || null
       })) || [];
       
+      console.log("Fetched orders:", typedData);
       setOrders(typedData);
     } catch (err) {
       console.error('Error fetching orders:', err);

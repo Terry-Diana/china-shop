@@ -79,7 +79,7 @@ const ProductList = () => {
     
     setFilteredProducts(filtered);
     
-    // Reset other filters
+    // Reset other filters when params change
     setFilters({
       priceRange: [0, 50000],
       brands: [],
@@ -109,14 +109,14 @@ const ProductList = () => {
     
     let result = [...products];
     
-    // Filter by category first if specified
+    // Apply category filter first if specified
     if (category) {
       result = result.filter(p => 
         p.category.toLowerCase() === category.toLowerCase()
       );
     }
     
-    // Filter by search query
+    // Apply search query
     if (searchQuery) {
       result = result.filter(p => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -124,7 +124,7 @@ const ProductList = () => {
       );
     }
     
-    // Filter by special filters (new, best-sellers, deals)
+    // Apply special filters (new, best-sellers, deals)
     if (filterParam) {
       switch (filterParam) {
         case 'new':

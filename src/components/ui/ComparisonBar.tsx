@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart3, X, Eye } from 'lucide-react';
 import { useProductComparison } from '../../hooks/useProductComparison';
@@ -13,9 +13,23 @@ const ComparisonBar = () => {
     clearComparison, 
     showComparisonPrompt, 
     pendingProduct, 
-    dismissPrompt 
+    dismissPrompt,
+    canAddMore
   } = useProductComparison();
   const [showComparison, setShowComparison] = useState(false);
+  const [showAddMorePrompt, setShowAddMorePrompt] = useState(false);
+
+  useEffect(() => {
+    // Show "add more" prompt when first item is added
+    if (comparisonList.length === 1 && !showComparisonPrompt) {
+      setShowAddMorePrompt(true);
+      // Auto-hide after 5 seconds
+      const timer = setTimeout(() => {
+        setShowAddMorePrompt(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [comparisonList.length, showComparisonPrompt]);
 
   const handleAddAnother = () => {
     dismissPrompt();
@@ -104,6 +118,57 @@ const ComparisonBar = () => {
         onDismiss={dismissPrompt}
         onAddAnother={handleAddAnother}
       />
+
+      {/* Add More Prompt */}
+      <AnimatePresence>
+        {showAddMorePrompt && comparisonList.length === 1 && canAddMore && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-20 right-4 bg-white rounded-lg shadow-lg border p-4 z-50 max-w-sm"
+          >
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex items-center">
+                <BarChart3 size={20} className="text-primary mr-2" />
+                <h3 className="font-medium text-gray-900">Add More Products</h3>
+              </div>
+              <button
+                onClick={() => setShowAddMorePrompt(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-4">
+              Add another product to start comparing features and prices.
+            </p>
+            
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAddMorePrompt(false)}
+                className="flex-1"
+              >
+                Dismiss
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setShowAddMorePrompt(false);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="flex-1"
+              >
+                Browse Products
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };
