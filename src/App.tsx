@@ -7,6 +7,7 @@ import ComparisonBar from './components/ui/ComparisonBar';
 import { CartProvider } from './contexts/CartContext';
 import { ProductProvider } from './contexts/ProductContext';
 import { useAdminAuth, initializeAdminAuth } from './hooks/useAdminAuth';
+import { supabase } from './lib/supabase';
 
 // Lazy-loaded components
 const Home = lazy(() => import('./pages/Home'));
