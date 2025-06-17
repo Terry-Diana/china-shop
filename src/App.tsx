@@ -7,7 +7,7 @@ import ComparisonBar from './components/ui/ComparisonBar';
 import { CartProvider } from './contexts/CartContext';
 import { ProductProvider } from './contexts/ProductContext';
 import { useAdminAuth, initializeAdminAuth } from './hooks/useAdminAuth';
-import { supabase } from './lib/supabase';
+import { initializeAuth } from './hooks/useAuth';
 
 // Lazy-loaded components
 const Home = lazy(() => import('./pages/Home'));
@@ -35,10 +35,11 @@ const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 
 // Admin auth guard component
 const AdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
-  const { admin, loading } = useAdminAuth();
+  const { admin, loading, initialized } = useAdminAuth();
   const location = useLocation();
   
-  if (loading) {
+  // Show loading only if not initialized yet
+  if (!initialized || (loading && !admin)) {
     return <LoadingSpinner fullScreen />;
   }
   
@@ -50,10 +51,10 @@ const AdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
 };
 
 function App() {
-  const location = useLocation();
-
   useEffect(() => {
-    // Initialize admin auth system
+    // Initialize both auth systems once
+    console.log('🚀 App: Initializing auth systems...');
+    initializeAuth();
     initializeAdminAuth();
 
     // Register service worker with proper cache management
@@ -61,33 +62,14 @@ function App() {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
           .then((registration) => {
-            console.log('SW registered: ', registration);
+            console.log('✅ SW registered:', registration);
           })
           .catch((registrationError) => {
-            console.log('SW registration failed: ', registrationError);
+            console.log('❌ SW registration failed:', registrationError);
           });
       });
     }
-  }, []);
-
-  // Set up session refresh interval with longer intervals
-  useEffect(() => {
-    // Refresh auth token every 50 minutes (less frequent)
-    const refreshInterval = setInterval(async () => {
-      try {
-        const { data, error } = await supabase.auth.refreshSession();
-        if (error) {
-          console.error('Session refresh error:', error);
-        } else {
-          console.log('Session refreshed successfully');
-        }
-      } catch (err) {
-        console.error('Error refreshing session:', err);
-      }
-    }, 50 * 60 * 1000); // 50 minutes
-
-    return () => clearInterval(refreshInterval);
-  }, []);
+  }, []); // Empty dependency array - run only once
 
   return (
     <ProductProvider>

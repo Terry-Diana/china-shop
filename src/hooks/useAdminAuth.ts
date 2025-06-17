@@ -6,46 +6,71 @@ import { Admin } from '../types/admin';
 interface AdminAuthState {
   admin: Admin | null;
   loading: boolean;
+  initialized: boolean;
   setAdmin: (admin: Admin | null) => void;
   setLoading: (loading: boolean) => void;
+  setInitialized: (initialized: boolean) => void;
   logout: () => Promise<void>;
   registerAdmin: (email: string, password: string, name: string, role: 'admin' | 'super_admin') => Promise<void>;
   checkAdminStatus: () => Promise<void>;
   refreshAdminSession: () => Promise<void>;
+  initialize: () => Promise<void>;
 }
 
 export const useAdminAuth = create<AdminAuthState>()(
   persist(
     (set, get) => ({
       admin: null,
-      loading: false, // Start with false to prevent infinite loading
+      loading: false, // Start with false
+      initialized: false,
 
       setAdmin: (admin) => {
-        console.log('🔧 useAdminAuth: Setting admin:', admin);
+        console.log('🔧 AdminAuth: Setting admin:', admin?.email || 'null');
         set({ admin, loading: false });
       },
 
       setLoading: (loading) => set({ loading }),
+      setInitialized: (initialized) => set({ initialized }),
+
+      initialize: async () => {
+        const state = get();
+        if (state.initialized) {
+          console.log('🔧 AdminAuth: Already initialized, skipping');
+          return;
+        }
+        
+        console.log('🔧 AdminAuth: Initializing...');
+        set({ loading: true });
+        
+        try {
+          await state.checkAdminStatus();
+        } catch (error) {
+          console.error('❌ AdminAuth: Initialization error:', error);
+          set({ admin: null, loading: false });
+        } finally {
+          set({ initialized: true, loading: false });
+        }
+      },
 
       refreshAdminSession: async () => {
         try {
-          console.log('🔄 useAdminAuth: Refreshing admin session...');
+          console.log('🔄 AdminAuth: Refreshing admin session...');
           
           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
           
           if (sessionError) {
-            console.error('❌ useAdminAuth: Session error:', sessionError);
+            console.error('❌ AdminAuth: Session error:', sessionError);
             set({ admin: null, loading: false });
             return;
           }
 
           if (!session?.user) {
-            console.log('ℹ️ useAdminAuth: No active session');
+            console.log('ℹ️ AdminAuth: No active session');
             set({ admin: null, loading: false });
             return;
           }
 
-          // Check if user is admin in the admins table - use maybeSingle() to handle no results gracefully
+          // Check if user is admin in the admins table
           const { data: adminData, error: adminError } = await supabase
             .from('admins')
             .select('*')
@@ -53,46 +78,46 @@ export const useAdminAuth = create<AdminAuthState>()(
             .maybeSingle();
 
           if (adminError) {
-            console.error('❌ useAdminAuth: Admin lookup error:', adminError);
+            console.error('❌ AdminAuth: Admin lookup error:', adminError);
             set({ admin: null, loading: false });
             return;
           }
 
           if (adminData) {
-            console.log('✅ useAdminAuth: Admin session refreshed');
+            console.log('✅ AdminAuth: Admin session refreshed');
             set({ admin: adminData, loading: false });
           } else {
-            console.log('ℹ️ useAdminAuth: No admin record found');
+            console.log('ℹ️ AdminAuth: No admin record found');
             set({ admin: null, loading: false });
           }
 
         } catch (error) {
-          console.error('💥 useAdminAuth: Error refreshing admin session:', error);
+          console.error('❌ AdminAuth: Error refreshing admin session:', error);
           set({ admin: null, loading: false });
         }
       },
 
       checkAdminStatus: async () => {
         try {
-          console.log('🔍 useAdminAuth: Checking admin status...');
+          console.log('🔍 AdminAuth: Checking admin status...');
           
           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
           
           if (sessionError) {
-            console.error('❌ useAdminAuth: Session error:', sessionError);
+            console.error('❌ AdminAuth: Session error:', sessionError);
             set({ admin: null, loading: false });
             return;
           }
 
           if (!session?.user) {
-            console.log('ℹ️ useAdminAuth: No active session');
+            console.log('ℹ️ AdminAuth: No active session');
             set({ admin: null, loading: false });
             return;
           }
 
-          console.log('✅ useAdminAuth: Active session found, checking admin status');
+          console.log('✅ AdminAuth: Active session found, checking admin status');
 
-          // Check if user is admin in the admins table - use maybeSingle() to handle no results gracefully
+          // Check if user is admin in the admins table
           const { data: adminData, error: adminError } = await supabase
             .from('admins')
             .select('*')
@@ -100,28 +125,28 @@ export const useAdminAuth = create<AdminAuthState>()(
             .maybeSingle();
 
           if (adminError) {
-            console.error('❌ useAdminAuth: Admin lookup error:', adminError);
+            console.error('❌ AdminAuth: Admin lookup error:', adminError);
             set({ admin: null, loading: false });
             return;
           }
 
           if (adminData) {
-            console.log('✅ useAdminAuth: Admin status confirmed');
+            console.log('✅ AdminAuth: Admin status confirmed');
             set({ admin: adminData, loading: false });
           } else {
-            console.log('ℹ️ useAdminAuth: No admin record found');
+            console.log('ℹ️ AdminAuth: No admin record found');
             set({ admin: null, loading: false });
           }
 
         } catch (error) {
-          console.error('💥 useAdminAuth: Error checking admin status:', error);
+          console.error('❌ AdminAuth: Error checking admin status:', error);
           set({ admin: null, loading: false });
         }
       },
 
       logout: async () => {
         try {
-          console.log('🚪 useAdminAuth: Logging out');
+          console.log('🚪 AdminAuth: Logging out');
           const currentAdmin = get().admin;
           
           // Clear state immediately
@@ -132,9 +157,9 @@ export const useAdminAuth = create<AdminAuthState>()(
             await supabase.auth.signOut();
           }
           
-          console.log('✅ useAdminAuth: Logout successful');
+          console.log('✅ AdminAuth: Logout successful');
         } catch (error) {
-          console.error('💥 useAdminAuth: Logout error:', error);
+          console.error('❌ AdminAuth: Logout error:', error);
           // Even if logout fails, clear local state
           set({ admin: null, loading: false });
         }
@@ -149,7 +174,7 @@ export const useAdminAuth = create<AdminAuthState>()(
             throw new Error('Only super admins can register new admins');
           }
           
-          console.log('👤 useAdminAuth: Registering new admin via server:', email);
+          console.log('👤 AdminAuth: Registering new admin via server:', email);
           
           // Validate inputs
           if (!email.trim() || !password || !name.trim()) {
@@ -176,34 +201,25 @@ export const useAdminAuth = create<AdminAuthState>()(
             }),
           });
 
-          // Clone the response so we can read it multiple times if needed
-          const responseClone = response.clone();
-
           let result;
           try {
             result = await response.json();
           } catch (jsonError) {
-            console.error('❌ useAdminAuth: Failed to parse JSON response:', jsonError);
-            // Use the cloned response to get text for better error reporting
-            try {
-              const responseText = await responseClone.text();
-              console.error('❌ useAdminAuth: Response text:', responseText);
-              throw new Error(`Server returned invalid response: ${response.status} ${response.statusText}. Response: ${responseText}`);
-            } catch (textError) {
-              console.error('❌ useAdminAuth: Failed to read response as text:', textError);
-              throw new Error(`Server returned invalid response: ${response.status} ${response.statusText}`);
-            }
+            console.error('❌ AdminAuth: Failed to parse JSON response:', jsonError);
+            const responseText = await response.text();
+            console.error('❌ AdminAuth: Response text:', responseText);
+            throw new Error(`Server returned invalid response: ${response.status} ${response.statusText}`);
           }
 
           if (!response.ok) {
-            console.error('❌ useAdminAuth: Server registration error:', result);
+            console.error('❌ AdminAuth: Server registration error:', result);
             throw new Error(result.error || 'Failed to register admin');
           }
 
-          console.log('✅ useAdminAuth: Admin registration successful');
+          console.log('✅ AdminAuth: Admin registration successful');
           
         } catch (error) {
-          console.error('💥 useAdminAuth: Registration error:', error);
+          console.error('❌ AdminAuth: Registration error:', error);
           throw error;
         }
       },
@@ -211,57 +227,58 @@ export const useAdminAuth = create<AdminAuthState>()(
     {
       name: 'admin-auth-storage',
       partialize: (state) => ({ admin: state.admin }),
-      version: 4,
+      version: 5,
       migrate: (persistedState: any, version: number) => {
         // Handle migration from older versions
-        if (version === 0 || version === 1 || version === 2 || version === 3) {
-          // For versions 0, 1, 2, and 3, keep the existing state structure
-          return persistedState;
+        if (version < 5) {
+          return { admin: persistedState?.admin || null };
         }
-        // For unknown versions, return a clean state
-        return { admin: null };
+        return persistedState;
       },
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.loading = false;
+          state.initialized = false;
         }
       }
     }
   )
 );
 
-// Initialize admin auth state and set up auth listener
-let authListenerInitialized = false;
+// Single admin auth listener setup
+let adminAuthListenerInitialized = false;
 
 export const initializeAdminAuth = () => {
-  if (authListenerInitialized) return;
+  if (adminAuthListenerInitialized) {
+    console.log('🔧 AdminAuth: Listener already initialized');
+    return;
+  }
   
-  authListenerInitialized = true;
+  adminAuthListenerInitialized = true;
+  console.log('🔧 AdminAuth: Setting up admin auth listener');
   
-  console.log('🔧 useAdminAuth: Initializing auth listener');
-  
-  // Set loading to false initially
-  useAdminAuth.getState().setLoading(false);
-  
-  // Check initial admin status
-  useAdminAuth.getState().checkAdminStatus();
+  // Initialize admin auth state
+  useAdminAuth.getState().initialize();
   
   // Listen for auth state changes
   supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('🔄 useAdminAuth: Auth state change:', event, session?.user?.id);
+    console.log('🔄 AdminAuth: Auth state change:', event, session?.user?.id);
+    
+    const state = useAdminAuth.getState();
     
     if (event === 'SIGNED_IN' && session?.user) {
       // Check if the signed-in user is an admin
-      await useAdminAuth.getState().checkAdminStatus();
+      await state.checkAdminStatus();
     } else if (event === 'SIGNED_OUT') {
-      console.log('🚪 useAdminAuth: User signed out, clearing admin state');
-      useAdminAuth.getState().setAdmin(null);
-    } else if (event === 'TOKEN_REFRESHED') {
-      // Refresh admin session when token is refreshed
-      await useAdminAuth.getState().refreshAdminSession();
+      console.log('🚪 AdminAuth: User signed out, clearing admin state');
+      state.setAdmin(null);
+    } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+      // Only refresh if we don't already have admin data
+      if (!state.admin) {
+        await state.refreshAdminSession();
+      }
     }
     
-    // Always ensure loading is false
-    useAdminAuth.getState().setLoading(false);
+    state.setLoading(false);
   });
 };
