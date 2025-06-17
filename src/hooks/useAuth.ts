@@ -25,7 +25,7 @@ export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      loading: false, // Start with false to prevent infinite loading
+      loading: true, // Start with false to prevent infinite loading
       
       setUser: (user) => set({ user, loading: false }),
       setLoading: (loading) => set({ loading }),
