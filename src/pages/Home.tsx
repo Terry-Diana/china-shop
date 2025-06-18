@@ -1,11 +1,25 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import HeroSection from '../components/home/HeroSection';
 import ProductCarousel from '../components/home/ProductCarousel';
 import CategoryGrid from '../components/home/CategoryGrid';
 import { useProducts } from '../hooks/useProducts';
+import { useAuth } from '../hooks/useAuth';
 
 const Home = () => {
-  const { products, loading } = useProducts();
+  const { products, loading: productsLoading, error: productsError } = useProducts();
+  const { initialized: authInitialized } = useAuth();
+  const [contentReady, setContentReady] = useState(false);
+
+  // Memoize filtered products to prevent unnecessary recalculations
+  const filteredProducts = useMemo(() => {
+    if (!products.length) return { newArrivals: [], bestSellers: [], deals: [] };
+    
+    return {
+      newArrivals: products.filter(p => p.isNew).slice(0, 10),
+      bestSellers: products.filter(p => p.bestSeller).slice(0, 10),
+      deals: products.filter(p => p.discount > 0).slice(0, 10),
+    };
+  }, [products]);
 
   useEffect(() => {
     // Scroll to top when component mounts
@@ -15,45 +29,91 @@ const Home = () => {
     document.title = 'China Square | Better Choices, Better Prices';
   }, []);
 
-  // Filter products by categories for different sections
-  const newArrivals = products.filter(p => p.isNew).slice(0, 10);
-  const bestSellers = products.filter(p => p.bestSeller).slice(0, 10);
-  const deals = products.filter(p => p.discount > 0).slice(0, 10);
+  // Handle content readiness
+  useEffect(() => {
+    // Mark content as ready when:
+    // 1. Auth is initialized (prevents auth-related flickers)
+    // 2. Either products are loaded OR we have an error OR we're not loading anymore
+    const isReady = authInitialized && (!productsLoading || productsError || products.length > 0);
+    
+    if (isReady && !contentReady) {
+      // Add small delay to prevent flash of loading state
+      const timer = setTimeout(() => setContentReady(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [authInitialized, productsLoading, productsError, products.length, contentReady]);
 
-  // Show loading only if we're actually loading and have no products yet
- {/* if (loading && products.length === 0) {
+  // Show initial loading only when absolutely necessary
+  const shouldShowLoader = !contentReady && !productsError;
+
+  if (shouldShowLoader) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
-  }*/} 
+  }
+
+  // Show error state if products failed to load
+  if (productsError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="text-red-500 mb-4">
+            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h2>
+          <p className="text-gray-600 mb-4">We're having trouble loading the page. Please try again.</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-md transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div>
+    <div className="min-h-screen">
       {/* Hero Section with Banner Slider */}
       <HeroSection />
       
       {/* Categories Grid */}
       <CategoryGrid />
       
-      {/* New Arrivals Carousel */}
-      <ProductCarousel 
-        title="New Arrivals" 
-        subtitle="Just in and trending now" 
-        products={newArrivals}
-        viewAllLink="/products?filter=new"
-      />
+      {/* Product Carousels - Only show if we have products */}
+      {products.length > 0 && (
+        <>
+          {/* New Arrivals Carousel */}
+          {filteredProducts.newArrivals.length > 0 && (
+            <ProductCarousel 
+              title="New Arrivals" 
+              subtitle="Just in and trending now" 
+              products={filteredProducts.newArrivals}
+              viewAllLink="/products?filter=new"
+            />
+          )}
+          
+          {/* Best Sellers Carousel */}
+          {filteredProducts.bestSellers.length > 0 && (
+            <ProductCarousel 
+              title="Best Sellers" 
+              subtitle="Our most popular products" 
+              products={filteredProducts.bestSellers}
+              viewAllLink="/products?filter=best-sellers"
+            />
+          )}
+        </>
+      )}
       
-      {/* Best Sellers Carousel */}
-      <ProductCarousel 
-        title="Best Sellers" 
-        subtitle="Our most popular products" 
-        products={bestSellers}
-        viewAllLink="/products?filter=best-sellers"
-      />
-      
-      {/* Special Offers Banner */}
+      {/* Special Offers Banner - Always show */}
       <div className="py-10 bg-accent/5">
         <div className="container mx-auto px-4">
           <div className="bg-gradient-to-r from-primary to-primary-dark rounded-lg overflow-hidden shadow-lg">
@@ -77,6 +137,7 @@ const Home = () => {
                   src="https://images.pexels.com/photos/5632402/pexels-photo-5632402.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
                   alt="Summer Sale" 
                   className="w-full h-full object-cover object-center"
+                  loading="lazy"
                 />
               </div>
             </div>
@@ -84,15 +145,17 @@ const Home = () => {
         </div>
       </div>
       
-      {/* Deals & Discounts Carousel */}
-      <ProductCarousel 
-        title="Deals & Discounts" 
-        subtitle="Save big on these special offers" 
-        products={deals}
-        viewAllLink="/products?filter=deals"
-      />
+      {/* Deals & Discounts Carousel - Only show if we have deals */}
+      {products.length > 0 && filteredProducts.deals.length > 0 && (
+        <ProductCarousel 
+          title="Deals & Discounts" 
+          subtitle="Save big on these special offers" 
+          products={filteredProducts.deals}
+          viewAllLink="/products?filter=deals"
+        />
+      )}
       
-      {/* Features Grid */}
+      {/* Features Grid - Always show */}
       <div className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-10">
@@ -125,7 +188,7 @@ const Home = () => {
             ].map((feature, index) => (
               <div key={index} className="text-center p-6 bg-white rounded-lg shadow-sm">
                 <div className="inline-block mb-4">
-                  <img src={feature.icon} alt={feature.title} className="w-12 h-12" />
+                  <img src={feature.icon} alt={feature.title} className="w-12 h-12" loading="lazy" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
                 <p className="text-gray-600">{feature.description}</p>
