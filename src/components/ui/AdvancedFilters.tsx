@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Filter, X, Star, Check } from 'lucide-react';
 import Button from './Button';
@@ -32,17 +32,20 @@ const AdvancedFilters = ({
 }: AdvancedFiltersProps) => {
   const [localFilters, setLocalFilters] = useState<FilterOptions>({...filters});
   
-  // Update local filters when props change
+  // Only update when filters prop changes and modal is open
   useEffect(() => {
-    setLocalFilters({...filters});
-  }, [filters]);
+    if (isOpen) {
+      setLocalFilters({...filters});
+    }
+  }, [filters, isOpen]); // Added isOpen dependency
 
-  const handleApplyFilters = () => {
+  // Memoized handlers
+  const handleApplyFilters = useCallback(() => {
     onFiltersChange(localFilters);
     onClose();
-  };
+  }, [localFilters, onFiltersChange, onClose]);
 
-  const handleResetFilters = () => {
+  const handleResetFilters = useCallback(() => {
     const resetFilters: FilterOptions = {
       priceRange: [0, 50000],
       brands: [],
@@ -54,25 +57,25 @@ const AdvancedFilters = ({
     };
     setLocalFilters(resetFilters);
     onFiltersChange(resetFilters);
-  };
+  }, [onFiltersChange]);
 
-  const toggleBrand = (brand: string) => {
+  const toggleBrand = useCallback((brand: string) => {
     setLocalFilters(prev => ({
       ...prev,
       brands: prev.brands.includes(brand)
         ? prev.brands.filter(b => b !== brand)
         : [...prev.brands, brand]
     }));
-  };
+  }, []);
 
-  const toggleCategory = (category: string) => {
+  const toggleCategory = useCallback((category: string) => {
     setLocalFilters(prev => ({
       ...prev,
       categories: prev.categories.includes(category)
         ? prev.categories.filter(c => c !== category)
         : [...prev.categories, category]
     }));
-  };
+  }, []);
 
   return (
     <AnimatePresence>

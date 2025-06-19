@@ -7,6 +7,7 @@ import AdvancedFilters from '../components/ui/AdvancedFilters';
 import { useProducts } from '../hooks/useProducts';
 import Button from '../components/ui/Button';
 import { useAnalytics } from '../hooks/useAnalytics';
+import { Product } from '../types/product'; // Import Product type
 
 const ProductList = () => {
   const { category } = useParams<{ category: string }>();
@@ -17,7 +18,8 @@ const ProductList = () => {
   const { products, loading } = useProducts();
   const { trackSearch } = useAnalytics();
   
-  const [filteredProducts, setFilteredProducts] = useState([]);
+  // Fix: Add proper type annotation
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -216,7 +218,8 @@ const ProductList = () => {
     return 'All Products';
   };
 
-  const renderProductItem = (product: any, index: number) => (
+  // Fix: Add proper type for product
+  const renderProductItem = (product: Product, index: number) => (
     <div className={viewMode === 'grid' ? 'p-2' : 'p-4 border-b'}>
       <ProductCard product={product} />
     </div>

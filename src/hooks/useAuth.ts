@@ -65,10 +65,15 @@ export const useAuth = create<AuthState>()(
             setTimeout(() => reject(new Error('Auth initialization timeout')), 10000)
           );
           
-          await Promise.race([
-            state.refreshSession(),
-            timeoutPromise
-          ]);
+          // Only wait for refreshSession if we have a user in state
+          if (state.user) {
+            await Promise.race([
+              state.refreshSession(),
+              timeoutPromise
+            ]);
+          } else {
+            set({ initialized: true, loading: false });
+          }
         } catch (error) {
           console.error('❌ Auth: Initialization error:', error);
           set({ user: null, loading: false, error: error instanceof Error ? error.message : 'Auth initialization failed' });
@@ -81,21 +86,11 @@ export const useAuth = create<AuthState>()(
         try {
           console.log('🔄 Auth: Refreshing session...');
           
-          // Add timeout for session refresh
-          const sessionPromise = supabase.auth.getSession();
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Session refresh timeout')), 5000)
-          );
-          
-          const { data: { session }, error } = await Promise.race([
-            sessionPromise,
-            timeoutPromise
-          ]) as any;
+          const { data: { session }, error } = await supabase.auth.getSession();
           
           if (error) {
             console.error('❌ Auth: Session error:', error);
-            set({ user: null, loading: false, error: error.message });
-            return;
+            throw error;
           }
 
           if (session?.user) {
@@ -165,6 +160,8 @@ export const useAuth = create<AuthState>()(
           }
         } catch (error) {
           console.error('❌ Auth: Session refresh error:', error);
+          // Clear invalid session
+          await supabase.auth.signOut();
           set({ 
             user: null, 
             loading: false, 
@@ -298,10 +295,10 @@ export const useAuth = create<AuthState>()(
         user: state.user,
         // Don't persist loading, initialized, or error states
       }),
-      version: 5,
+      version: 6, // Incremented version
       migrate: (persistedState: any, version: number) => {
         // Clear old state on version mismatch to prevent issues
-        if (version < 5) {
+        if (version < 6) {
           console.log('🔄 Auth: Migrating auth state, clearing old data');
           return { user: null };
         }
@@ -341,92 +338,82 @@ export const initializeAuth = () => {
     authStateChangeSubscription.subscription?.unsubscribe();
   }
   
-  // Set up auth state change listener with debouncing
-  let authChangeTimeout: NodeJS.Timeout;
-  
+  // Set up auth state change listener
   authStateChangeSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔄 Auth: State change:', event, session?.user?.id);
     
-    // Clear any pending auth change handlers
-    if (authChangeTimeout) {
-      clearTimeout(authChangeTimeout);
-    }
+    const state = useAuth.getState();
     
-    // Debounce auth state changes to prevent rapid firing
-    authChangeTimeout = setTimeout(async () => {
-      const state = useAuth.getState();
-      
-      try {
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Create basic user object immediately
-          const basicUser = {
-            id: session.user.id,
-            email: session.user.email!,
-            first_name: session.user.user_metadata?.first_name,
-            last_name: session.user.user_metadata?.last_name,
-          };
-          
-          state.setUser(basicUser);
-          
-          // Fetch profile asynchronously without blocking
-          setTimeout(async () => {
-            try {
-              const { data: profile, error: profileError } = await supabase
+    try {
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Create basic user object immediately
+        const basicUser = {
+          id: session.user.id,
+          email: session.user.email!,
+          first_name: session.user.user_metadata?.first_name,
+          last_name: session.user.user_metadata?.last_name,
+        };
+        
+        state.setUser(basicUser);
+        
+        // Fetch profile asynchronously without blocking
+        setTimeout(async () => {
+          try {
+            const { data: profile, error: profileError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', session.user.id)
+              .maybeSingle();
+
+            if (profileError && profileError.code !== 'PGRST116') {
+              console.warn('⚠️ Auth: Profile fetch warning:', profileError);
+              return;
+            }
+
+            if (!profile) {
+              console.log('ℹ️ Auth: Creating user profile...');
+              const { error: createError } = await supabase
                 .from('users')
-                .select('*')
-                .eq('id', session.user.id)
-                .maybeSingle();
-
-              if (profileError && profileError.code !== 'PGRST116') {
-                console.warn('⚠️ Auth: Profile fetch warning:', profileError);
-                return;
-              }
-
-              if (!profile) {
-                console.log('ℹ️ Auth: Creating user profile...');
-                const { error: createError } = await supabase
-                  .from('users')
-                  .insert({
-                    id: session.user.id,
-                    email: session.user.email!,
-                    first_name: session.user.user_metadata?.first_name,
-                    last_name: session.user.user_metadata?.last_name,
-                  });
-                
-                if (createError && createError.code !== '23505') {
-                  console.warn('⚠️ Auth: Profile creation warning:', createError);
-                }
-              } else {
-                // Update with full profile data
-                state.setUser({
+                .insert({
                   id: session.user.id,
                   email: session.user.email!,
-                  first_name: profile.first_name || session.user.user_metadata?.first_name,
-                  last_name: profile.last_name || session.user.user_metadata?.last_name,
+                  first_name: session.user.user_metadata?.first_name,
+                  last_name: session.user.user_metadata?.last_name,
                 });
+              
+              if (createError && createError.code !== '23505') {
+                console.warn('⚠️ Auth: Profile creation warning:', createError);
               }
-            } catch (error) {
-              console.warn('⚠️ Auth: Profile handling warning:', error);
+            } else {
+              // Update with full profile data
+              state.setUser({
+                id: session.user.id,
+                email: session.user.email!,
+                first_name: profile.first_name || session.user.user_metadata?.first_name,
+                last_name: profile.last_name || session.user.user_metadata?.last_name,
+              });
             }
-          }, 100);
-          
-        } else if (event === 'SIGNED_OUT') {
-          console.log('🚪 Auth: User signed out');
-          state.clearAuth();
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('🔄 Auth: Token refreshed');
-          // Only refresh if we don't already have user data
-          if (!state.user || state.user.id !== session.user.id) {
-            await state.refreshSession();
+          } catch (error) {
+            console.warn('⚠️ Auth: Profile handling warning:', error);
           }
+        }, 100);
+        
+      } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 Auth: User signed out');
+        state.clearAuth();
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        console.log('🔄 Auth: Token refreshed');
+        // Only refresh if we don't already have user data
+        if (!state.user || state.user.id !== session.user.id) {
+          await state.refreshSession();
         }
-      } catch (error) {
-        console.error('❌ Auth: Error in auth state change handler:', error);
-        state.setError(error instanceof Error ? error.message : 'Auth state change error');
       }
-      
-      state.setLoading(false);
-    }, 100); // 100ms debounce
+    } catch (error) {
+      console.error('❌ Auth: Error in auth state change handler:', error);
+      state.setError(error instanceof Error ? error.message : 'Auth state change error');
+    }
+    
+    state.setLoading(false);
   });
 };
 

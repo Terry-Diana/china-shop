@@ -53,15 +53,20 @@ export const useAdminAuth = create<AdminAuthState>()(
         set({ loading: true, error: null });
         
         try {
-          // Add timeout to prevent infinite initialization
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Admin auth initialization timeout')), 10000)
-          );
-          
-          await Promise.race([
-            state.checkAdminStatus(),
-            timeoutPromise
-          ]);
+          // Only check admin status if we have an admin in state
+          if (state.admin) {
+            // Add timeout to prevent infinite initialization
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Admin auth initialization timeout')), 10000)
+            );
+            
+            await Promise.race([
+              state.checkAdminStatus(),
+              timeoutPromise
+            ]);
+          } else {
+            set({ initialized: true, loading: false });
+          }
         } catch (error) {
           console.error('❌ AdminAuth: Initialization error:', error);
           set({ 
@@ -78,21 +83,11 @@ export const useAdminAuth = create<AdminAuthState>()(
         try {
           console.log('🔄 AdminAuth: Refreshing admin session...');
           
-          // Add timeout for session refresh
-          const sessionPromise = supabase.auth.getSession();
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Admin session refresh timeout')), 5000)
-          );
-          
-          const { data: { session }, error: sessionError } = await Promise.race([
-            sessionPromise,
-            timeoutPromise
-          ]) as any;
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
           
           if (sessionError) {
             console.error('❌ AdminAuth: Session error:', sessionError);
-            set({ admin: null, loading: false, error: sessionError.message });
-            return;
+            throw sessionError;
           }
 
           if (!session?.user) {
@@ -110,8 +105,7 @@ export const useAdminAuth = create<AdminAuthState>()(
 
           if (adminError) {
             console.error('❌ AdminAuth: Admin lookup error:', adminError);
-            set({ admin: null, loading: false, error: adminError.message });
-            return;
+            throw adminError;
           }
 
           if (adminData) {
@@ -124,6 +118,8 @@ export const useAdminAuth = create<AdminAuthState>()(
 
         } catch (error) {
           console.error('❌ AdminAuth: Error refreshing admin session:', error);
+          // Clear invalid session
+          await supabase.auth.signOut();
           set({ 
             admin: null, 
             loading: false, 
@@ -291,16 +287,16 @@ export const useAdminAuth = create<AdminAuthState>()(
         }
       },
     }),
-    {
+   {
       name: 'admin-auth-storage',
       partialize: (state) => ({ 
         admin: state.admin,
         // Don't persist loading, initialized, or error states
       }),
-      version: 6,
+      version: 7, // Incremented version
       migrate: (persistedState: any, version: number) => {
         // Clear old state on version mismatch to prevent issues
-        if (version < 6) {
+        if (version < 7) {
           console.log('🔄 AdminAuth: Migrating admin auth state, clearing old data');
           return { admin: null };
         }
@@ -340,41 +336,31 @@ export const initializeAdminAuth = () => {
     adminAuthStateChangeSubscription.subscription?.unsubscribe();
   }
   
-  // Listen for auth state changes with debouncing
-  let adminAuthChangeTimeout: NodeJS.Timeout;
-  
+  // Listen for auth state changes
   adminAuthStateChangeSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('🔄 AdminAuth: Auth state change:', event, session?.user?.id);
     
-    // Clear any pending admin auth change handlers
-    if (adminAuthChangeTimeout) {
-      clearTimeout(adminAuthChangeTimeout);
+    const state = useAdminAuth.getState();
+    
+    try {
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Check if the signed-in user is an admin
+        await state.checkAdminStatus();
+      } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 AdminAuth: User signed out, clearing admin state');
+        state.clearAdminAuth();
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Only refresh if we don't already have admin data or if it's a different user
+        if (!state.admin || state.admin.id !== session.user.id) {
+          await state.refreshAdminSession();
+        }
+      }
+    } catch (error) {
+      console.error('❌ AdminAuth: Error in admin auth state change handler:', error);
+      state.setError(error instanceof Error ? error.message : 'Admin auth state change error');
     }
     
-    // Debounce admin auth state changes
-    adminAuthChangeTimeout = setTimeout(async () => {
-      const state = useAdminAuth.getState();
-      
-      try {
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Check if the signed-in user is an admin
-          await state.checkAdminStatus();
-        } else if (event === 'SIGNED_OUT') {
-          console.log('🚪 AdminAuth: User signed out, clearing admin state');
-          state.clearAdminAuth();
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          // Only refresh if we don't already have admin data or if it's a different user
-          if (!state.admin || state.admin.id !== session.user.id) {
-            await state.refreshAdminSession();
-          }
-        }
-      } catch (error) {
-        console.error('❌ AdminAuth: Error in admin auth state change handler:', error);
-        state.setError(error instanceof Error ? error.message : 'Admin auth state change error');
-      }
-      
-      state.setLoading(false);
-    }, 100); // 100ms debounce
+    state.setLoading(false);
   });
 };
 

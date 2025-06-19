@@ -10,7 +10,7 @@ const Home = () => {
   const { initialized: authInitialized } = useAuth();
   const [contentReady, setContentReady] = useState(false);
 
-  // Memoize filtered products to prevent unnecessary recalculations
+// Memoize filtered products to prevent unnecessary recalculations
   const filteredProducts = useMemo(() => {
     if (!products.length) return { newArrivals: [], bestSellers: [], deals: [] };
     
@@ -30,16 +30,15 @@ const Home = () => {
   }, []);
 
   // Handle content readiness
+  // Handle content readiness
   useEffect(() => {
     // Mark content as ready when:
-    // 1. Auth is initialized (prevents auth-related flickers)
-    // 2. Either products are loaded OR we have an error OR we're not loading anymore
-    const isReady = authInitialized && (!productsLoading || productsError || products.length > 0);
+    // 1. Products are loaded OR we have an error
+    // 2. Auth is initialized (but don't wait for it if not critical)
+    const isReady = (!productsLoading || productsError || products.length > 0) && authInitialized;
     
     if (isReady && !contentReady) {
-      // Add small delay to prevent flash of loading state
-      const timer = setTimeout(() => setContentReady(true), 100);
-      return () => clearTimeout(timer);
+      setContentReady(true);
     }
   }, [authInitialized, productsLoading, productsError, products.length, contentReady]);
 
