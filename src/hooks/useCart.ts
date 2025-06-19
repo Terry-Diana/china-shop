@@ -58,7 +58,7 @@ export const useCart = () => {
         await updateQuantity(productId, newQuantity);
       } else {
         // Add new item
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('cart_items')
           .insert({
             user_id: user.id,

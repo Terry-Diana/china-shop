@@ -1,10 +1,11 @@
+// src/components/product/ProductCard.tsx
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Star, Eye, BarChart3 } from 'lucide-react';
 import { Product } from '../../types/product';
 import { useAuth } from '../../hooks/useAuth';
-import { useCart } from '../../contexts/CartContext';
+import { useCart } from '../../contexts/CartContext'; // ✅ Import from context, not hooks
 import { useFavorites } from '../../hooks/useFavorites';
 import { useProductComparison } from '../../hooks/useProductComparison';
 import { useAnalytics } from '../../hooks/useAnalytics';
@@ -22,7 +23,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const [showQuickView, setShowQuickView] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { addToCart } = useCart();
+  const { addToCart } = useCart(); // ✅ This should now work correctly
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
   const { addToComparison, isInComparison, canAddMore } = useProductComparison();
   const { trackProductView, trackAddToCart, trackAddToWishlist } = useAnalytics();
