@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { Sliders, Filter, X, Check, Grid, List } from 'lucide-react';
+import { Sliders, Filter, X, Grid, List } from 'lucide-react';
 import ProductCard from '../components/product/ProductCard';
 import VirtualizedList from '../components/ui/VirtualizedList';
 import AdvancedFilters from '../components/ui/AdvancedFilters';
 import { useProducts } from '../hooks/useProducts';
 import Button from '../components/ui/Button';
 import { useAnalytics } from '../hooks/useAnalytics';
-import { Product } from '../types/product'; // Import Product type
+import { Product } from '../types/product';
 
 const ProductList = () => {
   const { category } = useParams<{ category: string }>();
@@ -18,7 +18,6 @@ const ProductList = () => {
   const { products, loading } = useProducts();
   const { trackSearch } = useAnalytics();
   
-  // Fix: Add proper type annotation
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -35,53 +34,27 @@ const ProductList = () => {
     sortBy: 'popularity'
   });
   
-  // Extract unique brands and categories from products
-  const brands = [...new Set(products.map(product => product.brand))];
-  const categories = [...new Set(products.map(product => product.category))];
+  // Extract unique brands and categories from products using useMemo
+  const brands = useMemo(() => 
+    [...new Set(products.map(product => product.brand))], 
+    [products]
+  );
   
-  // Update filters when params change
+  const categories = useMemo(() => 
+    [...new Set(products.map(product => product.category))], 
+    [products]
+  );
+
+  // Memoize the trackSearch function to prevent unnecessary re-renders
+  const memoizedTrackSearch = useCallback(
+    (query: string, resultCount: number) => {
+      trackSearch(query, resultCount);
+    },
+    [trackSearch]
+  );
+
+  // Reset filters when route params change
   useEffect(() => {
-    if (products.length === 0) return;
-    
-    let filtered = [...products];
-    
-    // Filter by category
-    if (category) {
-      filtered = filtered.filter(p => 
-        p.category.toLowerCase() === category.toLowerCase()
-      );
-    }
-    
-    // Filter by search query
-    if (searchQuery) {
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      
-      // Track search
-      trackSearch(searchQuery, filtered.length);
-    }
-    
-    // Filter by special filters (new, best-sellers, deals)
-    if (filterParam) {
-      switch (filterParam) {
-        case 'new':
-          filtered = filtered.filter(p => p.isNew);
-          break;
-        case 'best-sellers':
-          filtered = filtered.filter(p => p.bestSeller);
-          break;
-        case 'deals':
-        case 'sale':
-          filtered = filtered.filter(p => p.discount > 0);
-          break;
-      }
-    }
-    
-    setFilteredProducts(filtered);
-    
-    // Reset other filters when params change
     setFilters({
       priceRange: [0, 50000],
       brands: [],
@@ -103,11 +76,14 @@ const ProductList = () => {
     
     // Scroll to top when params change
     window.scrollTo(0, 0);
-  }, [category, searchQuery, filterParam, products, trackSearch]);
-  
-  // Apply filters
+  }, [category, searchQuery, filterParam]); // Remove trackSearch from dependencies
+
+  // Apply all filters and sorting
   useEffect(() => {
-    if (products.length === 0) return;
+    if (products.length === 0) {
+      setFilteredProducts([]);
+      return;
+    }
     
     let result = [...products];
     
@@ -152,7 +128,7 @@ const ProductList = () => {
       result = result.filter(p => filters.brands.includes(p.brand));
     }
     
-    // Apply category filter
+    // Apply category filter (additional categories from filter)
     if (filters.categories.length > 0) {
       result = result.filter(p => filters.categories.includes(p.category));
     }
@@ -198,6 +174,13 @@ const ProductList = () => {
     // Enable virtualization for large lists
     setUseVirtualization(result.length > 50);
   }, [products, filters, category, searchQuery, filterParam]);
+
+  // Track search separately to avoid infinite loops
+  useEffect(() => {
+    if (searchQuery && filteredProducts.length >= 0) {
+      memoizedTrackSearch(searchQuery, filteredProducts.length);
+    }
+  }, [searchQuery, filteredProducts.length, memoizedTrackSearch]);
   
   // Generate page title
   const getPageTitle = () => {
@@ -218,12 +201,42 @@ const ProductList = () => {
     return 'All Products';
   };
 
-  // Fix: Add proper type for product
   const renderProductItem = (product: Product, index: number) => (
     <div className={viewMode === 'grid' ? 'p-2' : 'p-4 border-b'}>
       <ProductCard product={product} />
     </div>
   );
+
+  // Handle filter changes
+  const handlePriceRangeChange = useCallback((value: number) => {
+    setFilters(prev => ({
+      ...prev,
+      priceRange: [prev.priceRange[0], value]
+    }));
+  }, []);
+
+  const handleQuickFilterChange = useCallback((filterName: 'inStock' | 'onSale', checked: boolean) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterName]: checked
+    }));
+  }, []);
+
+  const handleSortChange = useCallback((sortBy: string) => {
+    setFilters(prev => ({ ...prev, sortBy }));
+  }, []);
+
+  const clearAllFilters = useCallback(() => {
+    setFilters({
+      priceRange: [0, 50000],
+      brands: [],
+      categories: [],
+      rating: 0,
+      inStock: false,
+      onSale: false,
+      sortBy: 'popularity'
+    });
+  }, []);
 
   // Show loading only if we're actually loading and have no products yet
   if (loading && products.length === 0) {
@@ -264,12 +277,27 @@ const ProductList = () => {
                   max="50000"
                   step="1000"
                   value={filters.priceRange[1]}
-                  onChange={e => setFilters(prev => ({
-                    ...prev,
-                    priceRange: [prev.priceRange[0], parseInt(e.target.value)]
-                  }))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  onChange={e => handlePriceRangeChange(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                 />
+                <style jsx>{`
+                  .slider::-webkit-slider-thumb {
+                    appearance: none;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    background: #bb313e;
+                    cursor: pointer;
+                  }
+                  .slider::-moz-range-thumb {
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    background: #bb313e;
+                    cursor: pointer;
+                    border: none;
+                  }
+                `}</style>
               </div>
               
               {/* Quick Filters */}
@@ -280,10 +308,7 @@ const ProductList = () => {
                     <input
                       type="checkbox"
                       checked={filters.inStock}
-                      onChange={(e) => setFilters(prev => ({
-                        ...prev,
-                        inStock: e.target.checked
-                      }))}
+                      onChange={(e) => handleQuickFilterChange('inStock', e.target.checked)}
                       className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
                     />
                     <span className="ml-2 text-gray-700">In Stock Only</span>
@@ -292,10 +317,7 @@ const ProductList = () => {
                     <input
                       type="checkbox"
                       checked={filters.onSale}
-                      onChange={(e) => setFilters(prev => ({
-                        ...prev,
-                        onSale: e.target.checked
-                      }))}
+                      onChange={(e) => handleQuickFilterChange('onSale', e.target.checked)}
                       className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
                     />
                     <span className="ml-2 text-gray-700">On Sale</span>
@@ -316,15 +338,7 @@ const ProductList = () => {
               {/* Clear Filters */}
               <div className="mt-6 pt-4 border-t border-gray-200">
                 <button
-                  onClick={() => setFilters({
-                    priceRange: [0, 50000],
-                    brands: [],
-                    categories: [],
-                    rating: 0,
-                    inStock: false,
-                    onSale: false,
-                    sortBy: 'popularity'
-                  })}
+                  onClick={clearAllFilters}
                   className="text-sm text-primary hover:text-primary-dark"
                 >
                   Clear All Filters
@@ -381,7 +395,7 @@ const ProductList = () => {
                   <select
                     id="sort"
                     value={filters.sortBy}
-                    onChange={e => setFilters(prev => ({ ...prev, sortBy: e.target.value }))}
+                    onChange={e => handleSortChange(e.target.value)}
                     className="bg-white border border-gray-300 rounded-md py-1.5 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="popularity">Popularity</option>
@@ -422,15 +436,7 @@ const ProductList = () => {
                 <p className="text-gray-600 mb-6">Try adjusting your filters or search term.</p>
                 <Button 
                   variant="primary"
-                  onClick={() => setFilters({
-                    priceRange: [0, 50000],
-                    brands: [],
-                    categories: [],
-                    rating: 0,
-                    inStock: false,
-                    onSale: false,
-                    sortBy: 'popularity'
-                  })}
+                  onClick={clearAllFilters}
                 >
                   Clear Filters
                 </Button>
@@ -465,8 +471,25 @@ const ProductList = () => {
             </div>
             
             <div className="p-4">
-              {/* Mobile filter content - simplified version */}
               <div className="space-y-6">
+                {/* Price Range - Mobile */}
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">Price Range</h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600">Ksh {filters.priceRange[0]}</span>
+                    <span className="text-sm text-gray-600">Ksh {filters.priceRange[1]}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50000"
+                    step="1000"
+                    value={filters.priceRange[1]}
+                    onChange={e => handlePriceRangeChange(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+
                 <div>
                   <h3 className="font-medium text-gray-900 mb-3">Quick Filters</h3>
                   <div className="space-y-2">
@@ -474,10 +497,7 @@ const ProductList = () => {
                       <input
                         type="checkbox"
                         checked={filters.inStock}
-                        onChange={(e) => setFilters(prev => ({
-                          ...prev,
-                          inStock: e.target.checked
-                        }))}
+                        onChange={(e) => handleQuickFilterChange('inStock', e.target.checked)}
                         className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
                       />
                       <span className="ml-2 text-gray-700">In Stock Only</span>
@@ -486,10 +506,7 @@ const ProductList = () => {
                       <input
                         type="checkbox"
                         checked={filters.onSale}
-                        onChange={(e) => setFilters(prev => ({
-                          ...prev,
-                          onSale: e.target.checked
-                        }))}
+                        onChange={(e) => handleQuickFilterChange('onSale', e.target.checked)}
                         className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
                       />
                       <span className="ml-2 text-gray-700">On Sale</span>
@@ -504,15 +521,7 @@ const ProductList = () => {
                 variant="outline"
                 size="sm"
                 fullWidth
-                onClick={() => setFilters({
-                  priceRange: [0, 50000],
-                  brands: [],
-                  categories: [],
-                  rating: 0,
-                  inStock: false,
-                  onSale: false,
-                  sortBy: 'popularity'
-                })}
+                onClick={clearAllFilters}
               >
                 Clear All
               </Button>
