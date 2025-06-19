@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, ShoppingCart, Share2, Star, CheckCircle, ChevronDown, ChevronUp, Truck, RotateCcw, Shield, AlertTriangle, BarChart3 } from 'lucide-react';
@@ -13,6 +13,7 @@ import { useFavorites } from '../hooks/useFavorites';
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
 import { useProductComparison } from '../hooks/useProductComparison';
 import { useAnalytics } from '../hooks/useAnalytics';
+import { Product } from '../types/product'; // Import the Product type
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -25,33 +26,39 @@ const ProductDetail = () => {
   const { addToComparison, isInComparison, canAddMore } = useProductComparison();
   const { trackProductView, trackAddToCart, trackAddToWishlist } = useAnalytics();
   
-  const [product, setProduct] = useState(null);
-  const [relatedProducts, setRelatedProducts] = useState([]);
+  // Fix: Add proper type annotations
+  const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [currentImage, setCurrentImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedTab, setSelectedTab] = useState('description');
   const [buttonState, setButtonState] = useState<'default' | 'adding' | 'added'>('default');
   const [favoriteState, setFavoriteState] = useState<'default' | 'adding'>('default');
   
+  // Use ref to track previous product ID
+  const prevProductIdRef = useRef<number | null>(null);
+  
   useEffect(() => {
     if (id && products.length > 0) {
-      const foundProduct = products.find(p => p.id === parseInt(id)) || products[0];
-      setProduct(foundProduct);
+      const productId = parseInt(id);
+      const foundProduct = products.find(p => p.id === productId);
       
-      // Add to recently viewed
-      addToRecentlyViewed(foundProduct);
-      
-      // Track product view
-      trackProductView(foundProduct.id, foundProduct.name);
-      
-      const related = products
-        .filter(p => p.category === foundProduct.category && p.id !== foundProduct.id)
-        .slice(0, 5);
-      setRelatedProducts(related);
-      
-      document.title = `${foundProduct.name} | China Square`;
-      
-      window.scrollTo(0, 0);
+      if (foundProduct && (!prevProductIdRef.current || prevProductIdRef.current !== productId)) {
+        setProduct(foundProduct);
+        addToRecentlyViewed(foundProduct);
+        trackProductView(foundProduct.id, foundProduct.name);
+        
+        const related = products
+          .filter(p => p.category === foundProduct.category && p.id !== foundProduct.id)
+          .slice(0, 5);
+        setRelatedProducts(related);
+        
+        document.title = `${foundProduct.name} | China Square`;
+        window.scrollTo(0, 0);
+        
+        // Update ref with current product ID
+        prevProductIdRef.current = productId;
+      }
     }
   }, [id, products, addToRecentlyViewed, trackProductView]);
   

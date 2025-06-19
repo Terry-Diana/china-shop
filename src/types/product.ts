@@ -2,18 +2,18 @@ export interface Product {
   id: number;
   name: string;
   description: string;
-  fullDescription?: string;
+  fullDescription?: string; // Made optional
   price: number;
   originalPrice: number;
-  discount: number; // percentage
+  discount: number;
   image: string;
-  images?: string[];
+  images?: string[]; // Made optional
   category: string;
   brand: string;
   rating: number;
   reviewCount: number;
   stock: number;
-  isFavorite: boolean;
+  isFavorite?: boolean; // Made optional
   isNew: boolean;
   bestSeller: boolean;
 }

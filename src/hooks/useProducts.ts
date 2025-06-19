@@ -1,35 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-
-export interface Product {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  original_price: number | null;
-  discount: number;
-  category_id: number | null;
-  brand: string;
-  stock: number;
-  rating: number;
-  review_count: number;
-  is_new: boolean;
-  is_best_seller: boolean;
-  image_url: string;
-  created_at: string;
-  updated_at: string;
-  // Computed properties for compatibility
-  category: string;
-  originalPrice: number;
-  isNew: boolean;
-  bestSeller: boolean;
-  image: string;
-  reviewCount: number;
-}
+import { Product } from '../types/product'; // Import the unified Product type
 
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false); // Start with false
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProducts = async () => {
@@ -47,15 +22,25 @@ export const useProducts = () => {
 
       if (productsError) throw productsError;
 
-      // Transform data to match expected format
-      const transformedProducts = (productsData || []).map(product => ({
-        ...product,
-        category: product.categories?.name || 'Uncategorized',
+      // Transform data to match the unified Product type
+      const transformedProducts: Product[] = (productsData || []).map(product => ({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        fullDescription: product.description, // Use description as fallback
+        price: product.price,
         originalPrice: product.original_price || product.price,
+        discount: product.discount,
+        image: product.image_url,
+        images: [product.image_url], // Create array with single image
+        category: product.categories?.name || 'Uncategorized',
+        brand: product.brand,
+        rating: product.rating,
+        reviewCount: product.review_count,
+        stock: product.stock,
+        isFavorite: false, // Default value
         isNew: product.is_new,
         bestSeller: product.is_best_seller,
-        image: product.image_url,
-        reviewCount: product.review_count,
       }));
 
       setProducts(transformedProducts);
