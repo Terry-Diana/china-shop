@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Sliders, Filter, X, Grid, List } from 'lucide-react';
 import ProductCard from '../components/product/ProductCard';
@@ -18,13 +18,18 @@ const ProductList = () => {
   const { products, loading } = useProducts();
   const { trackSearch } = useAnalytics();
   
+  // Use refs to prevent unnecessary re-renders
+  const searchTrackedRef = useRef<Set<string>>(new Set());
+  const initialLoadRef = useRef(true);
+  
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [useVirtualization, setUseVirtualization] = useState(false);
   
-  const [filters, setFilters] = useState({
+  // Initialize filters with useCallback to maintain referential equality
+  const getInitialFilters = useCallback(() => ({
     priceRange: [0, 50000] as [number, number],
     brands: [] as string[],
     categories: [] as string[],
@@ -32,38 +37,37 @@ const ProductList = () => {
     inStock: false,
     onSale: false,
     sortBy: 'popularity'
-  });
+  }), []);
   
-  // Extract unique brands and categories from products using useMemo
-  const brands = useMemo(() => 
-    [...new Set(products.map(product => product.brand))], 
-    [products]
-  );
+  const [filters, setFilters] = useState(getInitialFilters);
   
-  const categories = useMemo(() => 
-    [...new Set(products.map(product => product.category))], 
-    [products]
-  );
+  // Memoize brands and categories to prevent unnecessary recalculations
+  const brands = useMemo(() => {
+    if (!products.length) return [];
+    return [...new Set(products.map(product => product.brand).filter(Boolean))];
+  }, [products]);
+  
+  const categories = useMemo(() => {
+    if (!products.length) return [];
+    return [...new Set(products.map(product => product.category).filter(Boolean))];
+  }, [products]);
 
-  // Memoize the trackSearch function to prevent unnecessary re-renders
-  const memoizedTrackSearch = useCallback(
-    (query: string, resultCount: number) => {
+  // Stable callback for tracking search
+  const stableTrackSearch = useCallback((query: string, resultCount: number) => {
+    const searchKey = `${query}-${resultCount}`;
+    if (!searchTrackedRef.current.has(searchKey)) {
+      searchTrackedRef.current.add(searchKey);
       trackSearch(query, resultCount);
-    },
-    [trackSearch]
-  );
+    }
+  }, [trackSearch]);
 
-  // Reset filters when route params change
+  // Reset filters when route changes - separated from filter application
   useEffect(() => {
-    setFilters({
-      priceRange: [0, 50000],
-      brands: [],
-      categories: [],
-      rating: 0,
-      inStock: false,
-      onSale: false,
-      sortBy: 'popularity'
-    });
+    const newFilters = getInitialFilters();
+    setFilters(newFilters);
+    
+    // Clear search tracking cache
+    searchTrackedRef.current.clear();
     
     // Update document title
     if (category) {
@@ -75,12 +79,15 @@ const ProductList = () => {
     }
     
     // Scroll to top when params change
-    window.scrollTo(0, 0);
-  }, [category, searchQuery, filterParam]); // Remove trackSearch from dependencies
+    if (!initialLoadRef.current) {
+      window.scrollTo(0, 0);
+    }
+    initialLoadRef.current = false;
+  }, [category, searchQuery, filterParam, getInitialFilters]);
 
-  // Apply all filters and sorting
+  // Apply filters and sorting - stable dependency array
   useEffect(() => {
-    if (products.length === 0) {
+    if (!products.length) {
       setFilteredProducts([]);
       return;
     }
@@ -96,9 +103,11 @@ const ProductList = () => {
     
     // Apply search query
     if (searchQuery) {
+      const query = searchQuery.toLowerCase();
       result = result.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchQuery.toLowerCase())
+        p.name.toLowerCase().includes(query) ||
+        p.description.toLowerCase().includes(query) ||
+        p.brand.toLowerCase().includes(query)
       );
     }
     
@@ -119,9 +128,8 @@ const ProductList = () => {
     }
     
     // Apply price filter
-    result = result.filter(p => 
-      p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]
-    );
+    const [minPrice, maxPrice] = filters.priceRange;
+    result = result.filter(p => p.price >= minPrice && p.price <= maxPrice);
     
     // Apply brand filter
     if (filters.brands.length > 0) {
@@ -170,20 +178,16 @@ const ProductList = () => {
     }
     
     setFilteredProducts(result);
-    
-    // Enable virtualization for large lists
     setUseVirtualization(result.length > 50);
-  }, [products, filters, category, searchQuery, filterParam]);
-
-  // Track search separately to avoid infinite loops
-  useEffect(() => {
-    if (searchQuery && filteredProducts.length >= 0) {
-      memoizedTrackSearch(searchQuery, filteredProducts.length);
+    
+    // Track search after filtering is complete
+    if (searchQuery && !searchTrackedRef.current.has(`${searchQuery}-${result.length}`)) {
+      stableTrackSearch(searchQuery, result.length);
     }
-  }, [searchQuery, filteredProducts.length, memoizedTrackSearch]);
+  }, [products, filters, category, searchQuery, filterParam, stableTrackSearch]);
   
   // Generate page title
-  const getPageTitle = () => {
+  const getPageTitle = useCallback(() => {
     if (category) {
       return category.charAt(0).toUpperCase() + category.slice(1);
     }
@@ -199,15 +203,16 @@ const ProductList = () => {
       }
     }
     return 'All Products';
-  };
+  }, [category, searchQuery, filterParam]);
 
-  const renderProductItem = (product: Product, index: number) => (
-    <div className={viewMode === 'grid' ? 'p-2' : 'p-4 border-b'}>
+  // Optimized render function
+  const renderProductItem = useCallback((product: Product, index: number) => (
+    <div key={product.id} className={viewMode === 'grid' ? 'p-2' : 'p-4 border-b'}>
       <ProductCard product={product} />
     </div>
-  );
+  ), [viewMode]);
 
-  // Handle filter changes
+  // Stable filter handlers
   const handlePriceRangeChange = useCallback((value: number) => {
     setFilters(prev => ({
       ...prev,
@@ -227,15 +232,21 @@ const ProductList = () => {
   }, []);
 
   const clearAllFilters = useCallback(() => {
-    setFilters({
-      priceRange: [0, 50000],
-      brands: [],
-      categories: [],
-      rating: 0,
-      inStock: false,
-      onSale: false,
-      sortBy: 'popularity'
-    });
+    setFilters(getInitialFilters());
+    searchTrackedRef.current.clear();
+  }, [getInitialFilters]);
+
+  // Stable view mode handlers
+  const handleViewModeChange = useCallback((mode: 'grid' | 'list') => {
+    setViewMode(mode);
+  }, []);
+
+  const handleMobileFilterToggle = useCallback(() => {
+    setIsMobileFilterOpen(prev => !prev);
+  }, []);
+
+  const handleAdvancedFiltersToggle = useCallback(() => {
+    setShowAdvancedFilters(prev => !prev);
   }, []);
 
   // Show loading only if we're actually loading and have no products yet
@@ -330,7 +341,7 @@ const ProductList = () => {
                 variant="outline"
                 fullWidth
                 icon={<Sliders size={16} />}
-                onClick={() => setShowAdvancedFilters(true)}
+                onClick={handleAdvancedFiltersToggle}
               >
                 Advanced Filters
               </Button>
@@ -357,7 +368,7 @@ const ProductList = () => {
                   size="sm"
                   className="lg:hidden"
                   icon={<Filter size={16} />}
-                  onClick={() => setIsMobileFilterOpen(true)}
+                  onClick={handleMobileFilterToggle}
                 >
                   Filters
                 </Button>
@@ -366,7 +377,7 @@ const ProductList = () => {
                   variant="outline"
                   size="sm"
                   icon={<Sliders size={16} />}
-                  onClick={() => setShowAdvancedFilters(true)}
+                  onClick={handleAdvancedFiltersToggle}
                 >
                   Advanced
                 </Button>
@@ -376,13 +387,13 @@ const ProductList = () => {
                 {/* View Mode Toggle */}
                 <div className="flex border border-gray-300 rounded-md">
                   <button
-                    onClick={() => setViewMode('grid')}
+                    onClick={() => handleViewModeChange('grid')}
                     className={`p-2 ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-gray-600'}`}
                   >
                     <Grid size={16} />
                   </button>
                   <button
-                    onClick={() => setViewMode('list')}
+                    onClick={() => handleViewModeChange('list')}
                     className={`p-2 ${viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-600'}`}
                   >
                     <List size={16} />

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import AdminLayout from './components/admin/AdminLayout';
@@ -39,7 +39,12 @@ const AdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const location = useLocation();
   
   // Show loading only if not initialized yet
-  if (!initialized || (loading && !admin)) {
+  if (!initialized) {
+    return <LoadingSpinner fullScreen />;
+  }
+  
+  // Show loading if we're still checking auth and don't have admin data
+  if (loading && !admin) {
     return <LoadingSpinner fullScreen />;
   }
   
@@ -51,24 +56,58 @@ const AdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
 };
 
 function App() {
+  const initRef = useRef(false);
+
   useEffect(() => {
+    // Prevent double initialization in development with React StrictMode
+    if (initRef.current) {
+      console.log('🔧 App: Initialization already done, skipping');
+      return;
+    }
+    
+    initRef.current = true;
+    
     // Initialize both auth systems once
     console.log('🚀 App: Initializing auth systems...');
+    
+    // Initialize user auth first
     initializeAuth();
-    initializeAdminAuth();
+    
+    // Initialize admin auth after a small delay to prevent conflicts
+    setTimeout(() => {
+      initializeAdminAuth();
+    }, 100);
 
-    // Register service worker with proper cache management
+    // Register service worker with improved error handling
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
           .then((registration) => {
             console.log('✅ SW registered:', registration);
+            
+            // Handle service worker updates
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New service worker is available
+                    console.log('🔄 New service worker available');
+                  }
+                });
+              }
+            });
           })
           .catch((registrationError) => {
             console.log('❌ SW registration failed:', registrationError);
           });
       });
     }
+
+    // Cleanup function
+    return () => {
+      console.log('🧹 App: Cleanup on unmount');
+    };
   }, []); // Empty dependency array - run only once
 
   return (
