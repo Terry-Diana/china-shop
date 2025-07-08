@@ -148,6 +148,23 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     fetchProducts();
+
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('products-realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'products' 
+      }, (payload) => {
+        console.log('🔄 Products: Real-time update received:', payload);
+        fetchProducts();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
