@@ -107,7 +107,7 @@ const AdminInventory = () => {
         .from('admins')
         .select('role')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
 
       if (adminError || !adminData) {
         throw new Error('Admin privileges required');

@@ -220,7 +220,7 @@ const AdminProducts = () => {
         .from('admins')
         .select('role')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
 
       if (adminError || !adminData) {
         throw new Error('You do not have admin privileges to perform this action');

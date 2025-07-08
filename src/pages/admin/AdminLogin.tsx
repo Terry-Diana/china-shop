@@ -104,15 +104,12 @@ const AdminLogin = () => {
         .from('admins')
         .select('*')
         .eq('id', authData.user.id)
-        .single();
+        .maybeSingle();
         
       if (adminError) {
         console.error('❌ AdminLogin: Admin lookup error:', adminError);
         await supabase.auth.signOut();
         
-        if (adminError.code === 'PGRST116') {
-          throw new Error('Access denied. This account does not have admin privileges.');
-        }
         throw new Error('Error verifying admin status. Please try again.');
       }
       
