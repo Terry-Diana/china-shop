@@ -209,6 +209,23 @@ const AdminProducts = () => {
     setLoading(true);
     
     try {
+      // Check if user is admin before proceeding
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error('You must be logged in as an admin to perform this action');
+      }
+
+      // Verify admin status
+      const { data: adminData, error: adminError } = await supabase
+        .from('admins')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (adminError || !adminData) {
+        throw new Error('You do not have admin privileges to perform this action');
+      }
+
       const formData = new FormData(e.target as HTMLFormElement);
       
       let imageUrl = selectedProduct?.image_url || 'https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg';
@@ -244,14 +261,19 @@ const AdminProducts = () => {
 
       if (selectedProduct) {
         // Update existing product
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('products')
           .update(productData)
-          .eq('id', selectedProduct.id);
+          .eq('id', selectedProduct.id)
+          .select()
+          .single();
 
         if (error) {
           console.error('Product update error:', error);
-          throw error;
+          if (error.message.includes('row-level security')) {
+            throw new Error('Access denied. Please ensure you are logged in as an admin.');
+          }
+          throw new Error(`Failed to update product: ${error.message}`);
         }
         
         // Show success indicator
@@ -264,16 +286,20 @@ const AdminProducts = () => {
         const { data, error } = await supabase
           .from('products')
           .insert(productData)
-          .select();
+          .select()
+          .single();
 
         if (error) {
           console.error('Product creation error:', error);
-          throw error;
+          if (error.message.includes('row-level security')) {
+            throw new Error('Access denied. Please ensure you are logged in as an admin.');
+          }
+          throw new Error(`Failed to create product: ${error.message}`);
         }
         
-        if (data && data[0]) {
+        if (data) {
           // Show success indicator
-          setUpdateSuccess(data[0].id);
+          setUpdateSuccess(data.id);
           setTimeout(() => setUpdateSuccess(null), 3000);
         }
         
@@ -287,7 +313,7 @@ const AdminProducts = () => {
       await fetchProducts();
     } catch (error: any) {
       console.error('Error saving product:', error);
-      alert(`Error saving product: ${error.message}. Please try again.`);
+      setError(error.message || 'Failed to save product. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -297,18 +323,29 @@ const AdminProducts = () => {
     if (!confirm('Are you sure you want to delete this product?')) return;
 
     try {
+      // Check admin privileges
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error('You must be logged in as an admin');
+      }
+
       const { error } = await supabase
         .from('products')
         .delete()
         .eq('id', productId);
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('row-level security')) {
+          throw new Error('Access denied. Admin privileges required.');
+        }
+        throw error;
+      }
 
       setProducts(products.filter(p => p.id !== productId));
       alert('Product deleted successfully!');
     } catch (error: any) {
       console.error('Error deleting product:', error);
-      alert('Error deleting product. Please try again.');
+      alert(`Error deleting product: ${error.message}`);
     }
   };
 

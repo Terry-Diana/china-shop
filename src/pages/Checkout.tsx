@@ -78,7 +78,7 @@ const Checkout = () => {
       // Create order in database
       const orderData = {
         user_id: user.id,
-        status: 'pending',
+        status: 'processing', // Changed from 'pending' to 'processing' to trigger stock update
         subtotal,
         tax,
         shipping,
@@ -116,7 +116,7 @@ const Checkout = () => {
       if (itemsError) throw itemsError;
 
       // Generate order number
-      const orderNum = `ORD-${new Date().getFullYear()}-${order.id.toString().padStart(6, '0')}`;
+      const orderNum = `CS-${new Date().getFullYear()}-${order.id.toString().padStart(6, '0')}`;
       
       // Update order with order number
       await supabase

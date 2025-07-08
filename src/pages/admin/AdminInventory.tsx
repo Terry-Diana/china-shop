@@ -96,14 +96,38 @@ const AdminInventory = () => {
   const updateStock = async (productId: number) => {
     try {
       setUpdatingStock(productId);
+      
+      // Check admin privileges
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error('You must be logged in as an admin');
+      }
+
+      const { data: adminData, error: adminError } = await supabase
+        .from('admins')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (adminError || !adminData) {
+        throw new Error('Admin privileges required');
+      }
+
       const newStock = stockValues[productId];
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .update({ stock: newStock })
-        .eq('id', productId);
+        .eq('id', productId)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('row-level security')) {
+          throw new Error('Access denied. Admin privileges required.');
+        }
+        throw error;
+      }
 
       // Update local state
       setProducts(products.map(p => 
@@ -115,7 +139,16 @@ const AdminInventory = () => {
       setTimeout(() => setUpdateSuccess(null), 3000);
     } catch (error: any) {
       console.error('Error updating stock:', error);
-      alert(`Failed to update stock: ${error.message}`);
+      alert(`Failed to update stock: ${error.message || 'Unknown error occurred'}`);
+      
+      // Reset stock value to original on error
+      const originalProduct = products.find(p => p.id === productId);
+      if (originalProduct) {
+        setStockValues(prev => ({
+          ...prev,
+          [productId]: originalProduct.stock
+        }));
+      }
     } finally {
       setUpdatingStock(null);
     }
