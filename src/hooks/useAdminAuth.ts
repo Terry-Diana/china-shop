@@ -245,7 +245,7 @@ export const useAdminAuth = create<AdminAuthState>()(
           
           // Add timeout for the registration request
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
           
           try {
             const response = await fetch(`${apiBaseUrl}/api/admin/register`, {

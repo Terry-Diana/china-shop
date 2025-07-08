@@ -62,7 +62,7 @@ export const useAuth = create<AuthState>()(
         try {
           // Add timeout to prevent infinite initialization
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Auth initialization timeout')), 10000)
+            setTimeout(() => reject(new Error('Auth initialization timeout')), 30000)
           );
           
           // Only wait for refreshSession if we have a user in state

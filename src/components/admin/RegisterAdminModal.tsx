@@ -34,7 +34,16 @@ const RegisterAdminModal = ({ onClose, onSuccess }: RegisterAdminModalProps) => 
       );
       onSuccess();
     } catch (err: any) {
-      setError(err.message || 'Failed to register admin. Please try again.');
+      const errorMessage = err.message || 'Failed to register admin. Please try again.';
+      
+      // Provide more helpful error messages for common issues
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('fetch')) {
+        setError('Unable to connect to the server. Please ensure the backend server is running and try again.');
+      } else if (errorMessage.includes('timeout')) {
+        setError('Request timed out. Please check your connection and try again.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
