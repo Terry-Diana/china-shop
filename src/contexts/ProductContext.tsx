@@ -32,6 +32,17 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       setError(null);
       
+      // Test Supabase connection first
+      const { data: testData, error: testError } = await supabase
+        .from('products')
+        .select('count')
+        .limit(1);
+      
+      if (testError) {
+        console.error('Supabase connection test failed:', testError);
+        throw new Error(`Database connection failed: ${testError.message}`);
+      }
+      
       const { data, error: fetchError } = await supabase
         .from('products')
         .select('*')
@@ -40,8 +51,12 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       if (fetchError) throw fetchError;
       setProducts(data || []);
     } catch (err: any) {
-      setError(err.message);
+      const errorMessage = err.message || 'Failed to fetch products';
+      setError(errorMessage);
       console.error('Error fetching products:', err);
+      
+      // Set empty products array on error to prevent infinite loading
+      setProducts([]);
     } finally {
       setLoading(false);
     }
