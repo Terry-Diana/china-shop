@@ -203,13 +203,24 @@ export const useAdminAuth = create<AdminAuthState>()(
           // Clear state immediately
           set({ admin: null, loading: false, error: null });
           
+          // Check if there's an active session before attempting to sign out
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            console.warn('⚠️ AdminAuth: Session check error during logout:', sessionError);
+            // State is already cleared, so we're done
+            return;
+          }
+          
           // Only sign out from Supabase if not using default credentials
-          if (currentAdmin && currentAdmin.id !== 'default-super-admin') {
+          if (currentAdmin && currentAdmin.id !== 'default-super-admin' && session) {
             const { error } = await supabase.auth.signOut();
             if (error) {
               console.warn('⚠️ AdminAuth: Supabase logout warning:', error);
               // Don't throw, local state is already cleared
             }
+          } else if (!session) {
+            console.log('ℹ️ AdminAuth: No active session to sign out from');
           }
           
           console.log('✅ AdminAuth: Logout successful');

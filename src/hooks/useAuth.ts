@@ -161,7 +161,15 @@ export const useAuth = create<AuthState>()(
         } catch (error) {
           console.error('❌ Auth: Session refresh error:', error);
           // Clear invalid session
-          await supabase.auth.signOut();
+          // Check if there's a session before attempting to sign out
+          try {
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            if (currentSession) {
+              await supabase.auth.signOut();
+            }
+          } catch (signOutError) {
+            console.warn('⚠️ Auth: Error during session cleanup:', signOutError);
+          }
           set({ 
             user: null, 
             loading: false, 
@@ -274,11 +282,24 @@ export const useAuth = create<AuthState>()(
           // Clear state immediately
           set({ user: null, loading: false, error: null });
           
-          // Sign out from Supabase
-          const { error } = await supabase.auth.signOut();
-          if (error) {
-            console.warn('⚠️ Auth: Supabase logout warning:', error);
-            // Don't throw, local state is already cleared
+          // Check if there's an active session before attempting to sign out
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            console.warn('⚠️ Auth: Session check error during logout:', sessionError);
+            // State is already cleared, so we're done
+            return;
+          }
+          
+          // Only sign out if there's an active session
+          if (session) {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+              console.warn('⚠️ Auth: Supabase logout warning:', error);
+              // Don't throw, local state is already cleared
+            }
+          } else {
+            console.log('ℹ️ Auth: No active session to sign out from');
           }
           
           console.log('✅ Auth: Logout successful');
